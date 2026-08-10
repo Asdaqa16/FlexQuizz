@@ -6,4 +6,11 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Python
 backend/venv/
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
