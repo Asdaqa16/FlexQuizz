@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
 import { Quiz } from '../types';
+import * as pdfjsLib from 'pdfjs-dist';
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 interface QuizUploadModalProps {
   isOpen: boolean;
@@ -21,23 +26,88 @@ export const QuizUploadModal: React.FC<QuizUploadModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFileName(file.name);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result as string;
-        if (text) {
-          setContent(text);
-          if (!topic) {
-            setTopic(file.name.replace(/\.[^/.]+$/, ''));
-          }
-        }
-      };
-      reader.readAsText(file);
+  const handleFileUpload = async (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = e.target.files?.[0];
+
+  if (!file) return;
+
+  setSelectedFileName(file.name);
+
+  try {
+    // Handle PDF files
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+      const arrayBuffer = await file.arrayBuffer();
+
+      const pdf = await pdfjsLib.getDocument({
+        data: arrayBuffer,
+      }).promise;
+
+      let extractedText = '';
+
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+        const page = await pdf.getPage(pageNumber);
+        const textContent = await page.getTextContent();
+
+        const pageText = textContent.items
+          .map((item) => {
+            if ('str' in item) {
+              return item.str;
+            }
+            return '';
+          })
+          .join(' ');
+
+        extractedText += `\n\n--- Page ${pageNumber} ---\n${pageText}`;
+      }
+
+      if (!extractedText.trim()) {
+        throw new Error(
+          'No selectable text was found in this PDF. It may be a scanned/image-only PDF.'
+        );
+      }
+
+      setContent(extractedText);
+
+      if (!topic) {
+        setTopic(file.name.replace(/\.[^/.]+$/, ''));
+      }
+
+      return;
     }
-  };
+
+    // Handle normal text files
+    if (
+      file.type === 'text/plain' ||
+      file.name.toLowerCase().endsWith('.txt') ||
+      file.name.toLowerCase().endsWith('.md')
+    ) {
+      const text = await file.text();
+
+      setContent(text);
+
+      if (!topic) {
+        setTopic(file.name.replace(/\.[^/.]+$/, ''));
+      }
+
+      return;
+    }
+
+    // DOCX/DOC are not handled yet
+    alert('PDF and TXT files are supported right now.');
+
+  } catch (error) {
+    console.error('File processing error:', error);
+    alert(
+      error instanceof Error
+        ? error.message
+        : 'Unable to read the uploaded file.'
+    );
+
+    setContent('');
+  }
+};
 
   const handleQuickTopic = (quickTopic: string) => {
     setTopic(quickTopic);
@@ -155,14 +225,16 @@ export const QuizUploadModal: React.FC<QuizUploadModalProps> = ({
             <div className="border-2 border-dashed border-[#d8d7e8] rounded-2xl p-4 text-center bg-[#f6f6fa] hover:bg-[#ececf4]/50 transition-colors relative mb-3">
               <input
                 type="file"
-                accept=".txt,.md,.pdf,.docx,.doc"
+                accept=".txt,.md,.pdf"
                 onChange={handleFileUpload}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
               <span className="material-symbols-outlined text-3xl text-[#7372A5] mb-1">cloud_upload</span>
               <p className="text-xs font-bold text-[#222138]">
-                {selectedFileName ? `Selected: ${selectedFileName}` : 'Click to upload PDF, DOCX, or TXT file'}
-              </p>
+  {selectedFileName
+    ? `Selected: ${selectedFileName}`
+    : 'Click to upload PDF or TXT file'}
+</p>
               <p className="text-[11px] text-gray-400 mt-0.5">Drag & drop your study notes here</p>
             </div>
 

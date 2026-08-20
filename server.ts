@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -110,13 +111,13 @@ Generate a JSON object with:
       const quizData = JSON.parse(responseText);
       return res.json(quizData);
     } catch (error: any) {
-      console.error('Error generating quiz with Gemini:', error);
-      // Return fallback quiz on failure
-      const topic = req.body?.topic || 'Study Material';
-      const difficulty = req.body?.difficulty || 'Medium';
-      const count = req.body?.questionCount || 10;
-      return res.json(getFallbackQuiz(topic, difficulty, count));
-    }
+  console.error('ERROR GENERATING QUIZ WITH GEMINI:', error);
+
+  return res.status(500).json({
+    error: 'Gemini quiz generation failed',
+    details: error?.message || String(error),
+  });
+}
   });
 
   // Vite middleware for dev mode

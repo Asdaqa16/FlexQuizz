@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ViewMode, Quiz, QuizResult } from './types';
+import { supabase } from './supabaseClient';
 import { INITIAL_USER_PROFILE, SAMPLE_QUIZZES, RECENT_QUIZZES_HISTORY } from './data/sampleData';
 import { Sidebar } from './components/Sidebar';
 import { QuizUploadModal } from './components/QuizUploadModal';
@@ -10,7 +11,8 @@ import { ActiveQuizView } from './components/Views/ActiveQuizView';
 import { ResultsView } from './components/Views/ResultsView';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<ViewMode>('dashboard');
+  const [currentView, setCurrentView] = useState<ViewMode>('login');
+  const [authLoading, setAuthLoading] = useState(true);
   const [dyslexiaMode, setDyslexiaMode] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState(INITIAL_USER_PROFILE);
   const [quizzesList, setQuizzesList] = useState<Quiz[]>(SAMPLE_QUIZZES);
@@ -18,7 +20,7 @@ export default function App() {
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
 
-  // Sync Dyslexia Mode class to body
+    // Sync Dyslexia Mode class to body
   useEffect(() => {
     if (dyslexiaMode) {
       document.body.classList.add('dyslexia-mode');
@@ -27,6 +29,52 @@ export default function App() {
     }
   }, [dyslexiaMode]);
 
+  // Check Supabase authentication state
+  useEffect(() => {
+    let mounted = true;
+
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      if (session) {
+        setCurrentView('dashboard');
+      } else {
+        setCurrentView('login');
+      }
+
+      setAuthLoading(false);
+    };
+
+    checkAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+
+      if (session) {
+        setCurrentView('dashboard');
+      } else {
+        setCurrentView('login');
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f6f6fa]">
+        <div className="text-sm font-semibold text-[#7372A5]">
+          Loading FlexQuizz...
+        </div>
+      </div>
+    );
+  }
   const handleStartQuiz = (quizToStart: Quiz) => {
     setActiveQuiz(quizToStart);
     setCurrentView('active-quiz');
