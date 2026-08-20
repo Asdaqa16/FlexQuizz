@@ -18,69 +18,97 @@ export const QuizUploadModal: React.FC<QuizUploadModalProps> = ({
   const [questionCount, setQuestionCount] = useState<number>(10);
   const [loading, setLoading] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   if (!isOpen) return null;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFileName(file.name);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result as string;
-        if (text) {
-          setContent(text);
-          if (!topic) {
-            setTopic(file.name.replace(/\.[^/.]+$/, ''));
-          }
-        }
-      };
-      reader.readAsText(file);
-    }
-  };
+  const handleFileUpload = (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = e.target.files?.[0];
 
+  if (file) {
+    setSelectedFile(file);
+    setSelectedFileName(file.name);
+
+    if (!topic) {
+      setTopic(file.name.replace(/\.[^/.]+$/, ''));
+    }
+  }
+};
   const handleQuickTopic = (quickTopic: string) => {
     setTopic(quickTopic);
     setContent(`Sample study notes for ${quickTopic}`);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!topic && !content) return;
+  e.preventDefault();
 
-    setLoading(true);
-    try {
-      const response = await fetch('/api/generate-quiz', {
+  if (!selectedFile) {
+    console.error('Please select a PDF file.');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const formData = new FormData();
+
+    formData.append('file', selectedFile);
+
+    const difficultyValue = difficulty.toLowerCase();
+
+    const response = await fetch(
+      `http://127.0.0.1:8000/generate-quiz?difficulty=${difficultyValue}`,
+      {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topic: topic || 'Study Notes',
-          content: content || topic,
-          difficulty,
-          questionCount,
-        }),
-      });
+        body: formData,
+      }
+    );
 
-      const data = await response.json();
-      
-      const newQuiz: Quiz = {
-        id: `gen-${Date.now()}`,
-        title: data.title || `${topic || 'Custom'} Quiz`,
-        topic: data.topic || topic || 'General Study',
-        difficulty: (data.difficulty as any) || difficulty,
-        questions: data.questions || [],
-        totalQuestions: data.questions?.length || questionCount,
-        timeLimitMinutes: 15,
-      };
-
-      onQuizGenerated(newQuiz);
-      onClose();
-    } catch (err) {
-      console.error('Quiz generation error:', err);
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Quiz generation failed: ${response.status} ${errorText}`
+      );
     }
-  };
+
+    const data = await response.json();
+
+    console.log('Generated quiz:', data);
+
+    const newQuiz: Quiz = {
+  id: `gen-${Date.now()}`,
+  title: `${topic || 'Custom'} Quiz`,
+  topic: topic || 'General Study',
+  difficulty: difficulty,
+  questions: (data.questions || []).map(
+    (item: any, index: number) => ({
+      id: index + 1,
+      question: item.question.question_text,
+      options: item.question.options.map(
+        (option: any) => option.text
+      ),
+      correctAnswerIndex: item.question.options.findIndex(
+        (option: any) => option.is_correct
+      ),
+      hint: '',
+      explanation: '',
+    })
+  ),
+  totalQuestions: data.questions?.length || 0,
+  timeLimitMinutes: 15,
+};
+
+    onQuizGenerated(newQuiz);
+    onClose();
+
+  } catch (err) {
+    console.error('Quiz generation error:', err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
@@ -155,7 +183,7 @@ export const QuizUploadModal: React.FC<QuizUploadModalProps> = ({
             <div className="border-2 border-dashed border-[#d8d7e8] rounded-2xl p-4 text-center bg-[#f6f6fa] hover:bg-[#ececf4]/50 transition-colors relative mb-3">
               <input
                 type="file"
-                accept=".txt,.md,.pdf,.docx,.doc"
+                accept=".pdf"
                 onChange={handleFileUpload}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />

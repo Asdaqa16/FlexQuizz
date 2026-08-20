@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ViewMode } from '../../types';
+import { supabase } from '../../supabaseClient';
 
 interface LoginViewProps {
   setCurrentView: (view: ViewMode) => void;
@@ -12,14 +13,25 @@ export const LoginView: React.FC<LoginViewProps> = ({
   dyslexiaMode,
   setDyslexiaMode,
 }) => {
-  const [email, setEmail] = useState('alex.johnson@university.edu');
-  const [password, setPassword] = useState('••••••••••••');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setCurrentView('dashboard');
-  };
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  setCurrentView('landing');
+};
 
   return (
     <div className="min-h-screen bg-[#f6f6fa] flex flex-col justify-between text-left">

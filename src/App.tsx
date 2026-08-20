@@ -8,9 +8,10 @@ import { LandingView } from './components/Views/LandingView';
 import { DashboardView } from './components/Views/DashboardView';
 import { ActiveQuizView } from './components/Views/ActiveQuizView';
 import { ResultsView } from './components/Views/ResultsView';
+import { supabase } from './supabaseClient';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<ViewMode>('dashboard');
+  const [currentView, setCurrentView] = useState<ViewMode>('login');
   const [dyslexiaMode, setDyslexiaMode] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState(INITIAL_USER_PROFILE);
   const [quizzesList, setQuizzesList] = useState<Quiz[]>(SAMPLE_QUIZZES);
@@ -32,6 +33,7 @@ export default function App() {
     setCurrentView('active-quiz');
   };
 
+
   const handleQuizComplete = (result: QuizResult) => {
     setQuizResult(result);
     // Update user stats
@@ -44,10 +46,26 @@ export default function App() {
     setCurrentView('quiz-results');
   };
 
-  const handleQuizGenerated = (newQuiz: Quiz) => {
-    setQuizzesList((prev) => [newQuiz, ...prev]);
-    handleStartQuiz(newQuiz);
-  };
+  const handleQuizGenerated = async (newQuiz: Quiz) => {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (user) {
+    const { error } = await supabase
+      .from('quizzes')
+      .insert({
+        user_id: user.id,
+        difficulty: newQuiz.difficulty,
+        total_questions: newQuiz.totalQuestions,
+      });
+
+    if (error) {
+      console.error('Failed to save quiz:', error);
+    }
+  }
+
+  setQuizzesList((prev) => [newQuiz, ...prev]);
+  handleStartQuiz(newQuiz);
+};
 
   // Full Screen Standalone Views
   if (currentView === 'login') {
@@ -238,3 +256,4 @@ export default function App() {
     </div>
   );
 }
+

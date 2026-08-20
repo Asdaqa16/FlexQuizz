@@ -14,7 +14,6 @@ from exceptions import (
     ValidationFailedError,
 )
 from google import genai
-from google.genai import types
 from models import (
     CalibrationEstimate,
     ChatTurn,
@@ -48,13 +47,17 @@ except ValueError as e:
 
 
 # Constants
-MODEL_TEXT = "gemini-2.5-flash"
-MODEL_EMBEDDING = "text-embedding-004"
+MODEL_TEXT = "gemini-3.1-flash-lite"
+MODEL_EMBEDDING = "gemini-embedding-001"
+
+# HARD API USAGE BUDGET FOR ONE /generate-quiz REQUEST
+# 1 extraction + 1 embedding + 4 question generations + 4 validations = 10 calls.
+MAX_QUIZ_CONCEPTS = 4
 
 
 # --- Utility: Async Retry Decorator ---
-def with_retry(retries: int = 2, backoff: float = 1.5, custom_exc=None):
-    """Decorator to retry async functions on transient failures."""
+def with_retry(retries: int = 0, backoff: float = 1.5, custom_exc=None):
+    """Retry helper. Quiz-generation calls use zero retries to keep API usage bounded."""
 
     def decorator(func):
         @wraps(func)
@@ -141,111 +144,88 @@ def extract_and_chunk(pdf_bytes: bytes) -> list[Chunk]:
 
 
 # --- 1.2 Concept Extraction ---
-@with_retry(retries=2, custom_exc=ConceptExtractionError)
+@with_retry(retries=0, custom_exc=ConceptExtractionError)
 async def extract_concepts(chunks: list[Chunk]) -> list[ConceptDraft]:
-    """Calls Gemini to identify concepts in a chunk, returning structured data."""
+    """Extract concepts with exactly ONE Gemini generation call for the whole PDF."""
 
-    all_drafts = []
+    if not chunks:
+        return []
 
-    # We iterate over chunks. For production with large PDFs,
-    # asyncio.gather() could map this, but we process sequentially here
-    # to respect rate limits simply.
+    # Keep preprocessing local. Combine the extracted PDF text into one prompt
+    # so a multi-page PDF does not create one Gemini request per chunk.
+    MAX_SOURCE_WORDS = 9000
+    source_words = []
     for chunk in chunks:
-        prompt = (
-            "Extract distinct educational concepts or topics from the following text. "
-            "Provide a short label and a one-line description for each. "
-            f"Source text:\n{chunk.text}"
-        )
+        source_words.extend(chunk.text.split())
+        if len(source_words) >= MAX_SOURCE_WORDS:
+            break
 
-        response = await client.aio.models.generate_content(
-            model=MODEL_TEXT,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                # The SDK requires a Pydantic model for structured output
-                response_schema=list[ConceptDraft],
-                temperature=0.1,
-            ),
-        )
+    source_text = " ".join(source_words[:MAX_SOURCE_WORDS])
 
-        # Gemini returns parsed JSON matching the schema if response_schema is provided.
-        # We manually attach the correct chunk index to enforce consistency.
-        drafts: list[ConceptDraft] = TypeAdapter(list[ConceptDraft]).validate_json(
-            response.text
-        )
+    prompt = (
+        "Extract the most important distinct educational concepts or topics "
+        "from the following study material. "
+        "Return at most 4 concepts. "
+        "For each concept provide a short label and a one-line description. "
+        "Merge overlapping concepts instead of repeating them.\n\n"
+        f"Source text:\n{source_text}"
+    )
 
-        for draft in drafts:
-            draft.source_chunk_index = chunk.chunk_index
+    response = await client.aio.models.generate_content(
+        model=MODEL_TEXT,
+        contents=prompt,
+        config=genai.types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=list[ConceptDraft],
+            temperature=0.1,
+        ),
+    )
 
-        all_drafts.extend(drafts)
+    drafts: list[ConceptDraft] = TypeAdapter(list[ConceptDraft]).validate_json(
+        response.text
+    )
 
-    return all_drafts
+    # Keep the maximum number of concepts bounded for the quiz pipeline.
+    drafts = drafts[:MAX_QUIZ_CONCEPTS]
+
+    for draft in drafts:
+        # Since all source material was processed in one request, associate
+        # the concept with all source chunks it could have come from.
+        draft.source_chunk_index = 0
+
+    return drafts
 
 
 # --- 1.3 Concept Deduplication (Embeddings) ---
 async def deduplicate_concepts(
     concept_drafts: list[ConceptDraft],
 ) -> list[Concept]:
-    """Clusters near-duplicate concepts using cosine similarity of embeddings."""
+    """Deduplicate locally without another Gemini API call.
+
+    Concept extraction already asks Gemini to merge overlapping concepts and
+    limits the result to MAX_QUIZ_CONCEPTS, so embeddings are unnecessary for
+    the /generate-quiz request. This keeps the quiz call budget deterministic.
+    """
 
     if not concept_drafts:
         return []
 
-    # 1. Prepare texts for embedding
-    texts_to_embed = [
-        f"{concept.label}: {concept.description}" for concept in concept_drafts
-    ]
-
-    # 2. Fetch embeddings
-    response = await client.aio.models.embed_content(
-        model=MODEL_EMBEDDING,
-        contents=texts_to_embed,
-    )
-
-    embeddings = [emb.values for emb in response.embeddings]
-
-    # Utility: Cosine Similarity
-    def cosine_sim(vec_a, vec_b):
-        dot = sum(a * b for a, b in zip(vec_a, vec_b))
-        norm_a = math.sqrt(sum(a * a for a in vec_a))
-        norm_b = math.sqrt(sum(b * b for b in vec_b))
-
-        return dot / (norm_a * norm_b) if norm_a and norm_b else 0.0
-
-    # 3. Greedy Clustering Threshold
-    THRESHOLD = 0.85
-    clusters: list[list[int]] = []
-
-    for i, emb in enumerate(embeddings):
-        added_to_cluster = False
-
-        for cluster in clusters:
-            # Compare to the center/first element of the existing cluster
-            center_idx = cluster[0]
-            sim = cosine_sim(emb, embeddings[center_idx])
-
-            if sim >= THRESHOLD:
-                cluster.append(i)
-                added_to_cluster = True
-                break
-
-        if not added_to_cluster:
-            clusters.append([i])
-
-    # 4. Merge clusters into final Concept list
     final_concepts = []
+    seen_labels = set()
 
-    for cluster in clusters:
-        primary = concept_drafts[cluster[0]]
+    for draft in concept_drafts[:MAX_QUIZ_CONCEPTS]:
+        key = draft.label.strip().lower()
 
-        # Aggregate all source chunks from the cluster, deduplicate, and sort
-        indices = {concept_drafts[idx].source_chunk_index for idx in cluster}
+        if key in seen_labels:
+            continue
+
+        seen_labels.add(key)
 
         final_concepts.append(
             Concept(
-                label=primary.label,
-                description=primary.description,
-                source_chunk_indices=sorted(indices),
+                label=draft.label,
+                description=draft.description,
+                source_chunk_indices=[draft.source_chunk_index],
             )
         )
 
@@ -253,7 +233,7 @@ async def deduplicate_concepts(
 
 
 # --- 1.4 Question Generation ---
-@with_retry(retries=2, custom_exc=QuestionGenerationError)
+@with_retry(retries=0, custom_exc=QuestionGenerationError)
 async def generate_question(
     concept: Concept,
     difficulty: Literal["easy", "medium", "hard"],
@@ -275,7 +255,7 @@ async def generate_question(
     response = await client.aio.models.generate_content(
         model=MODEL_TEXT,
         contents=prompt,
-        config=types.GenerateContentConfig(
+        config=genai.types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=QuestionDraft,
             temperature=0.4,
@@ -286,7 +266,7 @@ async def generate_question(
 
 
 # --- 1.5 Question Validation ---
-@with_retry(retries=1, custom_exc=QuestionGenerationError)
+@with_retry(retries=0, custom_exc=QuestionGenerationError)
 async def validate_question(
     question: QuestionDraft,
 ) -> ValidationResult:
@@ -306,7 +286,7 @@ async def validate_question(
     response = await client.aio.models.generate_content(
         model=MODEL_TEXT,
         contents=prompt,
-        config=types.GenerateContentConfig(
+        config=genai.types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=ValidationResult,
             temperature=0.1,
@@ -321,36 +301,27 @@ async def generate_validated_question(
     concept: Concept,
     difficulty: Literal["easy", "medium", "hard"],
 ) -> QuestionDraft:
+    """Generate and validate exactly one question for one concept.
+
+    No retries are performed here. This guarantees the quiz endpoint stays
+    within its fixed API budget.
     """
-    Helper function for the backend teammate.
-    Attempts to generate and validate a question up to 3 times before giving up.
-    """
 
-    MAX_ATTEMPTS = 3
+    try:
+        q_draft = await generate_question(concept, difficulty)
+        val_result = await validate_question(q_draft)
 
-    for attempt in range(MAX_ATTEMPTS):
-        try:
-            q_draft = await generate_question(concept, difficulty)
-            val_result = await validate_question(q_draft)
+        if val_result.passed:
+            return q_draft
 
-            if val_result.passed:
-                return q_draft
+        raise ValidationFailedError(
+            f"Question failed validation: {val_result.notes}"
+        )
 
-            logger.info(
-                "Question failed validation. Notes: %s. Retrying...",
-                val_result.notes,
-            )
-
-        except QuestionGenerationError as e:
-            logger.warning(
-                "Error during question generation/validation attempt %s: %s",
-                attempt + 1,
-                e,
-            )
-
-    raise ValidationFailedError(
-        f"Failed to generate a valid question after {MAX_ATTEMPTS} attempts."
-    )
+    except QuestionGenerationError as e:
+        raise ValidationFailedError(
+            f"Question generation failed for '{concept.label}': {e}"
+        ) from e
 
 
 # --- 1.6 Wrong-Answer Explanation ---
@@ -381,7 +352,7 @@ async def generate_explanation(
     response = await client.aio.models.generate_content(
         model=MODEL_TEXT,
         contents=prompt,
-        config=types.GenerateContentConfig(temperature=0.3),
+        config=genai.types.GenerateContentConfig(temperature=0.3),
     )
 
     return response.text.strip()
@@ -425,7 +396,7 @@ async def generate_quiz_summary(
     response = await client.aio.models.generate_content(
         model=MODEL_TEXT,
         contents=prompt,
-        config=types.GenerateContentConfig(temperature=0.5),
+        config=genai.types.GenerateContentConfig(temperature=0.5),
     )
 
     return response.text.strip()
@@ -454,7 +425,7 @@ async def analyze_past_paper(
     response = await client.aio.models.generate_content(
         model=MODEL_TEXT,
         contents=prompt,
-        config=types.GenerateContentConfig(
+        config=genai.types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=CalibrationEstimate,
             temperature=0.2,
@@ -475,9 +446,9 @@ async def tutor_followup(
 
     # Construct history for the new SDK
     contents = [
-        types.Content(
+        genai.types.Content(
             role="user" if turn.role == "user" else "model",
-            parts=[types.Part.from_text(text=turn.text)],
+            parts=[genai.types.Part.from_text(text=turn.text)],
         )
         for turn in conversation_history
     ]
@@ -492,10 +463,10 @@ async def tutor_followup(
     )
 
     contents.append(
-        types.Content(
+        genai.types.Content(
             role="user",
             parts=[
-                types.Part.from_text(
+                genai.types.Part.from_text(
                     text=f"{system_instruction}\n\nStudent: {student_message}"
                 )
             ],
@@ -505,7 +476,7 @@ async def tutor_followup(
     response = await client.aio.models.generate_content(
         model=MODEL_TEXT,
         contents=contents,
-        config=types.GenerateContentConfig(temperature=0.6),
+        config=genai.types.GenerateContentConfig(temperature=0.6),
     )
 
     return response.text.strip()
