@@ -1190,7 +1190,7 @@ export const ActiveQuizView: React.FC<
             <div className="space-y-2">
 
               <h2 className="text-xl sm:text-2xl font-bold text-[#222138] leading-snug">
-<<<<<<< HEAD
+
                 {currentQuestion.question}
               </h2>
               <p className="text-xs text-gray-400 font-medium">Select the correct answer.</p>
@@ -1218,7 +1218,7 @@ export const ActiveQuizView: React.FC<
                           isSelected
                             ? 'bg-[#7372A5] text-white'
                             : 'bg-[#ececf4] text-[#7372A5] group-hover:bg-[#d8d7e8]'
-=======
+
                 {dyslexiaMode ? (
                   currentQuestion.question.split(' ').map((word, index) => (
                     <span key={index} className="inline-block relative group">
@@ -1228,7 +1228,7 @@ export const ActiveQuizView: React.FC<
                           spokenHighlight?.type === 'question' && spokenHighlight?.wordIndex === index 
                             ? 'bg-yellow-200 text-yellow-900 scale-110 shadow-sm' 
                             : 'hover:bg-purple-100 hover:text-purple-800 hover:scale-110 hover:shadow-sm'
->>>>>>> 30e962cc8d4bb4b2e0e1da694889f46650445a23
+
                         }`}
                       >
                         {word}
@@ -1237,7 +1237,7 @@ export const ActiveQuizView: React.FC<
                         Click to hear
                         <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-[4px] border-transparent border-t-[#222138]"></span>
                       </span>
-<<<<<<< HEAD
+
                       <span className="text-sm font-semibold text-[#222138] break-words whitespace-normal min-w-0">
                         {opt}
                       </span>
@@ -1246,7 +1246,7 @@ export const ActiveQuizView: React.FC<
                     <div
                       className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
                         isSelected ? 'border-[#7372A5] bg-[#7372A5]' : 'border-gray-300'
-=======
+
                       <span className="mr-1"> </span>
                     </span>
                   ))
@@ -1303,15 +1303,13 @@ export const ActiveQuizView: React.FC<
                         adaptiveLoading
                           ? 'opacity-70'
                           : ''
->>>>>>> 30e962cc8d4bb4b2e0e1da694889f46650445a23
+
                       }`}
                     >
 
                       <div className="flex items-center gap-3.5">
 
-<<<<<<< HEAD
-            
-=======
+
                         <span className={`w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center ${
                           isSelected
                             ? 'bg-[#7372A5] text-white'
@@ -1366,7 +1364,7 @@ export const ActiveQuizView: React.FC<
               )}
 
             </div>
->>>>>>> 30e962cc8d4bb4b2e0e1da694889f46650445a23
+
 
 
             {selectedAnswers[
