@@ -175,7 +175,10 @@ export const ActiveQuizView: React.FC<
     setSecondsSpent(0);
     setAdaptiveError('');
 
-  }, [quiz.id]);
+  }, [
+  quiz.id,
+  adaptiveSessionId,
+]);
 
 
   const currentQuestion =
@@ -574,8 +577,7 @@ export const ActiveQuizView: React.FC<
                   adaptiveSessionId,
 
                 question_number:
-                  currentQuestionIndex +
-                  1,
+                 currentQuestion.id,
 
                 selected_option_index:
                   selected,
@@ -701,7 +703,7 @@ export const ActiveQuizView: React.FC<
           Question = {
 
           id:
-            data.question_number,
+           currentQuestion.id + 1,
 
           question:
             raw.question_text,
@@ -730,6 +732,20 @@ export const ActiveQuizView: React.FC<
               | 'Medium'
               | 'Hard',
         };
+
+        setSelectedAnswers(
+  (prev) => {
+    const next = {
+      ...prev,
+    };
+
+    delete next[
+      nextQuestion.id
+    ];
+
+    return next;
+  }
+);
 
 
         setQuestions(
