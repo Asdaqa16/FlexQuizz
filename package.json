@@ -17,6 +17,8 @@
     "@vitejs/plugin-react": "^5.0.4",
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
+    "hyphenation.en-us": "^0.2.1",
+    "hypher": "^0.2.5",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "pdfjs-dist": "^6.2.108",

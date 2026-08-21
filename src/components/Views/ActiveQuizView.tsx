@@ -3,6 +3,11 @@ import React, {
   useState,
 } from 'react';
 
+// @ts-ignore
+import Hypher from 'hypher';
+// @ts-ignore
+import english from 'hyphenation.en-us';
+
 import {
   Quiz,
   QuizResult,
@@ -10,6 +15,7 @@ import {
   Question,
 } from '../../types';
 
+const h = new Hypher(english);
 
 interface ActiveQuizViewProps {
   quiz: Quiz;
@@ -119,6 +125,17 @@ export const ActiveQuizView: React.FC<
   ] = useState('');
 
 
+  const [
+    spokenHighlight,
+    setSpokenHighlight,
+  ] = useState<{ type: 'question' | 'option', optIndex?: number, wordIndex: number } | null>(null);
+
+  const [
+    speechSpeed,
+    setSpeechSpeed,
+  ] = useState(0.85);
+
+
   // ----------------------------------------------------------
   // Timer
   // ----------------------------------------------------------
@@ -179,6 +196,106 @@ export const ActiveQuizView: React.FC<
 
   }
 
+
+  // ----------------------------------------------------------
+  // TEXT TO SPEECH (DYSLEXIA MODE)
+  // ----------------------------------------------------------
+
+  const speakWord = (word: string, type: 'question' | 'option', optIndex: number, wordIndex: number) => {
+    setSpokenHighlight({ type, optIndex, wordIndex });
+    const cleanWord = word.replace(/[.,!?]/g, '');
+    
+    // Break into syllables for clear, slow pronunciation
+    const syllables = h.hyphenate(cleanWord);
+    // Use hyphens instead of commas to prevent the TTS engine from treating
+    // syllables like "vi" as isolated Roman numerals (e.g., reading "6")
+    const syllabifiedText = syllables.join('-'); 
+
+    const utterance = new SpeechSynthesisUtterance(syllabifiedText);
+    utterance.lang = "en-US";
+    utterance.rate = 0.3; // Very slow for dyslexic comprehension
+    utterance.onend = () => setSpokenHighlight(null);
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const speakFullQuestion = () => {
+    window.speechSynthesis.cancel();
+    setSpokenHighlight(null);
+
+    const qWords = currentQuestion.question.split(' ');
+    const qCharMap: number[] = [];
+    let qc = 0, qw = 0;
+    for (const word of qWords) {
+        for (let i = 0; i < word.length; i++) qCharMap[qc++] = qw;
+        qCharMap[qc++] = qw; // space
+        qw++;
+    }
+
+    const qUtterance = new SpeechSynthesisUtterance(currentQuestion.question);
+    qUtterance.lang = "en-US";
+    qUtterance.rate = speechSpeed; 
+
+    qUtterance.onboundary = (e) => {
+        if (e.name === 'word') {
+            const idx = qCharMap[e.charIndex];
+            if (idx !== undefined) {
+                setSpokenHighlight({ type: 'question', wordIndex: idx });
+            }
+        }
+    };
+
+    const optionUtterances: SpeechSynthesisUtterance[] = [];
+    currentQuestion.options.forEach((opt, optIndex) => {
+        const prefix = `Option ${['A', 'B', 'C', 'D', 'E'][optIndex]}: `;
+        const prefixLen = prefix.length;
+
+        const optWords = opt.split(' ');
+        const optCharMap: number[] = [];
+        let cc = 0, ww = 0;
+        for (const word of optWords) {
+            for (let i = 0; i < word.length; i++) optCharMap[cc++] = ww;
+            optCharMap[cc++] = ww; 
+            ww++;
+        }
+
+        const oUtt = new SpeechSynthesisUtterance(prefix + opt);
+        oUtt.lang = "en-US";
+        oUtt.rate = speechSpeed;
+        oUtt.onboundary = (e) => {
+            if (e.name === 'word') {
+                const adj = e.charIndex - prefixLen;
+                if (adj >= 0) {
+                    const idx = optCharMap[adj];
+                    if (idx !== undefined) {
+                        setSpokenHighlight({ type: 'option', optIndex, wordIndex: idx });
+                    }
+                } else {
+                    setSpokenHighlight(null);
+                }
+            }
+        };
+        optionUtterances.push(oUtt);
+    });
+
+    qUtterance.onend = () => {
+        setSpokenHighlight(null);
+        if (optionUtterances.length > 0) window.speechSynthesis.speak(optionUtterances[0]);
+    };
+
+    for (let i = 0; i < optionUtterances.length - 1; i++) {
+        optionUtterances[i].onend = () => {
+            setSpokenHighlight(null);
+            window.speechSynthesis.speak(optionUtterances[i+1]);
+        };
+    }
+    
+    if (optionUtterances.length > 0) {
+        optionUtterances[optionUtterances.length - 1].onend = () => setSpokenHighlight(null);
+    }
+
+    window.speechSynthesis.speak(qUtterance);
+  };
 
   // ----------------------------------------------------------
   // OPTION SELECTION
@@ -1003,25 +1120,53 @@ export const ActiveQuizView: React.FC<
                 {currentQuestionIndex + 1}
               </span>
 
-              <button
-                onClick={
-                  handleToggleFlag
-                }
-                className={`text-xs font-semibold ${
-                  flaggedQuestions[
+              <div className="flex items-center gap-4">
+                {dyslexiaMode && (
+                  <>
+                    <select
+                      className="text-xs font-bold text-[#7372A5] bg-[#ececf4] border-none rounded-xl px-2 py-1.5 outline-none cursor-pointer hover:bg-[#d8d7e8] transition-colors"
+                      value={speechSpeed}
+                      onChange={(e) => {
+                        setSpeechSpeed(parseFloat(e.target.value));
+                        window.speechSynthesis.cancel();
+                        setSpokenHighlight(null);
+                      }}
+                    >
+                      <option value={0.5}>0.5x Speed</option>
+                      <option value={0.75}>0.75x Speed</option>
+                      <option value={0.85}>0.85x Speed (Default)</option>
+                      <option value={1.0}>1x Speed</option>
+                    </select>
+
+                    <button
+                      onClick={speakFullQuestion}
+                      className="flex items-center gap-1.5 text-xs font-bold text-white bg-[#7372A5] hover:bg-[#585785] hover:scale-105 px-3 py-1.5 rounded-xl transition-all shadow-sm"
+                    >
+                      🔊 Read Aloud
+                    </button>
+                  </>
+                )}
+
+                <button
+                  onClick={
+                    handleToggleFlag
+                  }
+                  className={`text-xs font-semibold ${
+                    flaggedQuestions[
+                      currentQuestion.id
+                    ]
+                      ? 'text-rose-600'
+                      : 'text-gray-400'
+                  }`}
+                >
+                  🚩{' '}
+                  {flaggedQuestions[
                     currentQuestion.id
                   ]
-                    ? 'text-rose-600'
-                    : 'text-gray-400'
-                }`}
-              >
-                🚩{' '}
-                {flaggedQuestions[
-                  currentQuestion.id
-                ]
-                  ? 'Flagged'
-                  : 'Report issue'}
-              </button>
+                    ? 'Flagged'
+                    : 'Report issue'}
+                </button>
+              </div>
 
             </div>
 
@@ -1029,7 +1174,29 @@ export const ActiveQuizView: React.FC<
             <div className="space-y-2">
 
               <h2 className="text-xl sm:text-2xl font-bold text-[#222138] leading-snug">
-                {currentQuestion.question}
+                {dyslexiaMode ? (
+                  currentQuestion.question.split(' ').map((word, index) => (
+                    <span key={index} className="inline-block relative group">
+                      <button 
+                        onClick={() => speakWord(word, 'question', 0, index)}
+                        className={`transition-all duration-200 rounded px-1 underline decoration-dotted decoration-purple-300 relative z-10 ${
+                          spokenHighlight?.type === 'question' && spokenHighlight?.wordIndex === index 
+                            ? 'bg-yellow-200 text-yellow-900 scale-110 shadow-sm' 
+                            : 'hover:bg-purple-100 hover:text-purple-800 hover:scale-110 hover:shadow-sm'
+                        }`}
+                      >
+                        {word}
+                      </button>
+                      <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#222138] text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                        Click to hear
+                        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-[4px] border-transparent border-t-[#222138]"></span>
+                      </span>
+                      <span className="mr-1"> </span>
+                    </span>
+                  ))
+                ) : (
+                  currentQuestion.question
+                )}
               </h2>
 
               <p className="text-xs text-gray-400 font-medium">
@@ -1096,7 +1263,26 @@ export const ActiveQuizView: React.FC<
                         </span>
 
                         <span className="text-sm font-semibold text-[#222138]">
-                          {option}
+                          {dyslexiaMode ? (
+                            option.split(' ').map((word, index) => (
+                              <span 
+                                key={index}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  speakWord(word, 'option', optionIndex, index);
+                                }}
+                                className={`inline-block transition-all duration-200 rounded px-1 cursor-pointer ${
+                                  spokenHighlight?.type === 'option' && spokenHighlight?.optIndex === optionIndex && spokenHighlight?.wordIndex === index 
+                                    ? 'bg-yellow-200 text-yellow-900 scale-110 shadow-sm' 
+                                    : 'hover:bg-purple-100 hover:text-purple-800 hover:scale-110 hover:shadow-sm'
+                                }`}
+                              >
+                                {word}&nbsp;
+                              </span>
+                            ))
+                          ) : (
+                            option
+                          )}
                         </span>
 
                       </div>
