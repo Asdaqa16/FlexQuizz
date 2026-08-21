@@ -76,56 +76,70 @@ class ConceptState(BaseModel):
     """
     Runtime adaptive state for one concept.
 
-    difficulty:
-        Current difficulty assigned to this concept.
-
-    streak_direction:
-        Whether the current consecutive streak is correct or incorrect.
-
-    streak_count:
-        Number of consecutive answers in the current direction.
+    Every concept has its own independent:
+    - difficulty
+    - streak direction
+    - streak count
+    - performance statistics
     """
 
     concept_label: str
+
     difficulty: Difficulty = "medium"
+
     streak_direction: StreakDirection = ""
+
     streak_count: int = 0
+
     times_asked: int = 0
+
     correct_count: int = 0
+
     incorrect_count: int = 0
 
 
 class AdaptiveQuestion(BaseModel):
     """
-    Question returned to the frontend during an adaptive quiz.
+    Question stored in adaptive session history.
     """
 
     question_number: int
+
     concept_label: str
+
     difficulty: Difficulty
+
     question: QuestionDraft
 
 
 class AdaptiveSession(BaseModel):
     """
-    Complete server-side state for one adaptive quiz session.
+    Complete server-side state for one adaptive quiz.
     """
 
     session_id: str
+
     title: str
+
     total_questions: int
+
     starting_difficulty: Difficulty
 
     concepts: list[Concept]
+
     concept_states: dict[str, ConceptState]
 
     questions_asked: int = 0
 
     current_concept_label: str | None = None
+
     current_question: QuestionDraft | None = None
+
     current_question_number: int | None = None
 
-    history: list[AdaptiveQuestion] = []
+    history: list[AdaptiveQuestion] = Field(
+        default_factory=list
+    )
 
 
 class AdaptiveQuizStartResponse(BaseModel):
@@ -157,11 +171,16 @@ class AdaptiveQuizAnswerResponse(BaseModel):
     answered_difficulty: Difficulty
 
     new_difficulty: Difficulty
+
     streak_direction: StreakDirection
     streak_count: int
 
+    next_question_number: int | None = None
+
     next_concept: str | None = None
+
     next_difficulty: Difficulty | None = None
+
     question: QuestionDraft | None = None
 
 
@@ -182,11 +201,12 @@ class QuizReportData(BaseModel):
 
 
 # ============================================================
-# 1.6 STRETCH GOAL MODELS
+# 1.6 STRETCH GOAL
 # ============================================================
 
 class CalibrationEstimate(BaseModel):
     suggested_starting_difficulty: Difficulty
+
     confidence_note: str = Field(
         description="Heuristic note about why this difficulty was chosen."
     )

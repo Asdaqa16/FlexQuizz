@@ -3,7 +3,6 @@ import io
 import logging
 import os
 from functools import wraps
-from typing import Literal
 
 from dotenv import load_dotenv
 from google import genai
@@ -45,10 +44,16 @@ try:
     if not api_key:
         raise ValueError("GEMINI_API_KEY is not set")
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(
+        api_key=api_key
+    )
 
 except ValueError as e:
-    logger.warning("Failed to initialize Gemini Client: %s", e)
+    logger.warning(
+        "Failed to initialize Gemini Client: %s",
+        e,
+    )
+
     client = None
 
 
@@ -58,7 +63,6 @@ except ValueError as e:
 
 MODEL_TEXT = "gemini-3.1-flash-lite"
 
-# Maximum concepts maintained by the adaptive engine.
 MAX_QUIZ_CONCEPTS = 8
 
 
@@ -66,7 +70,11 @@ MAX_QUIZ_CONCEPTS = 8
 # RETRY HELPER
 # ============================================================
 
-def with_retry(retries: int = 0, backoff: float = 1.5, custom_exc=None):
+def with_retry(
+    retries: int = 0,
+    backoff: float = 1.5,
+    custom_exc=None,
+):
     def decorator(func):
 
         @wraps(func)
@@ -75,7 +83,10 @@ def with_retry(retries: int = 0, backoff: float = 1.5, custom_exc=None):
             for attempt in range(retries + 1):
 
                 try:
-                    return await func(*args, **kwargs)
+                    return await func(
+                        *args,
+                        **kwargs,
+                    )
 
                 except Exception as e:
 
@@ -89,7 +100,9 @@ def with_retry(retries: int = 0, backoff: float = 1.5, custom_exc=None):
 
                         raise
 
-                    await asyncio.sleep(backoff ** attempt)
+                    await asyncio.sleep(
+                        backoff ** attempt
+                    )
 
         return wrapper
 
@@ -97,25 +110,35 @@ def with_retry(retries: int = 0, backoff: float = 1.5, custom_exc=None):
 
 
 # ============================================================
-# 1.1 PDF EXTRACTION
+# PDF EXTRACTION
 # ============================================================
 
-def extract_and_chunk(pdf_bytes: bytes) -> list[Chunk]:
+def extract_and_chunk(
+    pdf_bytes: bytes,
+) -> list[Chunk]:
 
     try:
 
-        reader = PdfReader(io.BytesIO(pdf_bytes))
+        reader = PdfReader(
+            io.BytesIO(pdf_bytes)
+        )
 
         chunks = []
 
         current_words = []
+
         chunk_index = 0
+
         start_page = 1
 
         TARGET_WORDS = 1200
+
         OVERLAP_WORDS = 150
 
-        for page_num, page in enumerate(reader.pages, 1):
+        for page_num, page in enumerate(
+            reader.pages,
+            1,
+        ):
 
             text = page.extract_text()
 
@@ -126,21 +149,32 @@ def extract_and_chunk(pdf_bytes: bytes) -> list[Chunk]:
 
             for word in words:
 
-                current_words.append(word)
+                current_words.append(
+                    word
+                )
 
                 if len(current_words) >= TARGET_WORDS:
 
                     chunks.append(
                         Chunk(
                             chunk_index=chunk_index,
-                            text=" ".join(current_words),
-                            approx_page_range=f"{start_page}-{page_num}",
+                            text=" ".join(
+                                current_words
+                            ),
+                            approx_page_range=(
+                                f"{start_page}-{page_num}"
+                            ),
                         )
                     )
 
                     chunk_index += 1
 
-                    current_words = current_words[-OVERLAP_WORDS:]
+                    current_words = (
+                        current_words[
+                            -OVERLAP_WORDS:
+                        ]
+                    )
+
                     start_page = page_num
 
         if current_words:
@@ -148,8 +182,12 @@ def extract_and_chunk(pdf_bytes: bytes) -> list[Chunk]:
             chunks.append(
                 Chunk(
                     chunk_index=chunk_index,
-                    text=" ".join(current_words),
-                    approx_page_range=f"{start_page}-{len(reader.pages)}",
+                    text=" ".join(
+                        current_words
+                    ),
+                    approx_page_range=(
+                        f"{start_page}-{len(reader.pages)}"
+                    ),
                 )
             )
 
@@ -163,10 +201,12 @@ def extract_and_chunk(pdf_bytes: bytes) -> list[Chunk]:
 
 
 # ============================================================
-# 1.1B TEXT EXTRACTION
+# TEXT EXTRACTION
 # ============================================================
 
-def extract_text_and_chunk(text: str) -> list[Chunk]:
+def extract_text_and_chunk(
+    text: str,
+) -> list[Chunk]:
 
     text = text.strip()
 
@@ -183,7 +223,7 @@ def extract_text_and_chunk(text: str) -> list[Chunk]:
 
 
 # ============================================================
-# 1.2 CONCEPT EXTRACTION
+# CONCEPT EXTRACTION
 # ============================================================
 
 @with_retry(
@@ -198,6 +238,7 @@ async def extract_concepts(
         return []
 
     if client is None:
+
         raise ConceptExtractionError(
             "Gemini client is not initialized. "
             "Check GEMINI_API_KEY."
@@ -209,7 +250,9 @@ async def extract_concepts(
 
     for chunk in chunks:
 
-        source_words.extend(chunk.text.split())
+        source_words.extend(
+            chunk.text.split()
+        )
 
         if len(source_words) >= MAX_SOURCE_WORDS:
             break
@@ -228,7 +271,7 @@ async def extract_concepts(
 
         "For each concept provide:\n"
         "- a short label\n"
-        "- a one-line description\n"
+        "- a one-line description\n\n"
 
         "Merge overlapping concepts instead of repeating them.\n\n"
 
@@ -250,9 +293,13 @@ async def extract_concepts(
 
     drafts = TypeAdapter(
         list[ConceptDraft]
-    ).validate_json(response.text)
+    ).validate_json(
+        response.text
+    )
 
-    drafts = drafts[:MAX_QUIZ_CONCEPTS]
+    drafts = drafts[
+        :MAX_QUIZ_CONCEPTS
+    ]
 
     for draft in drafts:
         draft.source_chunk_index = 0
@@ -261,7 +308,7 @@ async def extract_concepts(
 
 
 # ============================================================
-# 1.3 CONCEPT DEDUPLICATION
+# CONCEPT DEDUPLICATION
 # ============================================================
 
 async def deduplicate_concepts(
@@ -272,9 +319,12 @@ async def deduplicate_concepts(
         return []
 
     final_concepts = []
+
     seen_labels = set()
 
-    for draft in concept_drafts[:MAX_QUIZ_CONCEPTS]:
+    for draft in concept_drafts[
+        :MAX_QUIZ_CONCEPTS
+    ]:
 
         label = draft.label.strip()
 
@@ -302,7 +352,7 @@ async def deduplicate_concepts(
 
 
 # ============================================================
-# 1.4 QUESTION GENERATION
+# QUESTION GENERATION
 # ============================================================
 
 @with_retry(
@@ -312,13 +362,51 @@ async def deduplicate_concepts(
 async def generate_question(
     concept: Concept,
     difficulty: Difficulty,
+    previous_questions: list[str] | None = None,
 ) -> QuestionDraft:
 
     if client is None:
+
         raise QuestionGenerationError(
             "Gemini client is not initialized. "
             "Check GEMINI_API_KEY."
         )
+
+    previous_questions = (
+        previous_questions or []
+    )
+
+    # Keep the prompt from becoming unnecessarily huge.
+    previous_questions = previous_questions[
+        -20:
+    ]
+
+    if previous_questions:
+
+        previous_text = "\n".join(
+            f"- {question}"
+            for question in previous_questions
+        )
+
+        uniqueness_instruction = f"""
+IMPORTANT — QUESTIONS ALREADY ASKED
+
+Do NOT repeat, paraphrase, or lightly modify any
+of these previously asked questions:
+
+{previous_text}
+
+The new question MUST test a different aspect,
+relationship, example, application, or reasoning
+path within the concept.
+"""
+
+    else:
+
+        uniqueness_instruction = """
+There are no previously asked questions.
+Generate an original question.
+"""
 
     prompt = f"""
 Create ONE multiple-choice question about:
@@ -332,6 +420,8 @@ Concept description:
 Required difficulty:
 {difficulty}
 
+{uniqueness_instruction}
+
 Rules:
 
 1. Provide exactly 4 options.
@@ -341,7 +431,9 @@ Rules:
 5. Wrong options should represent realistic misconceptions.
 6. Use clear educational language.
 7. Match the requested difficulty.
-8. Return only the structured JSON response.
+8. Do not copy or paraphrase previous questions.
+9. Test a different aspect of the concept when possible.
+10. Return only the structured JSON response.
 """
 
     response = await client.aio.models.generate_content(
@@ -353,7 +445,7 @@ Rules:
         config=genai.types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=QuestionDraft,
-            temperature=0.4,
+            temperature=0.65,
         ),
     )
 
@@ -361,7 +453,10 @@ Rules:
         response.text
     )
 
-    # Defensive validation before returning.
+    # --------------------------------------------------------
+    # Defensive validation
+    # --------------------------------------------------------
+
     if len(question.options) != 4:
 
         raise QuestionGenerationError(
@@ -381,11 +476,52 @@ Rules:
             "exactly one correct answer."
         )
 
+    # Make sure Gemini actually respected the
+    # requested difficulty.
+    if question.difficulty != difficulty:
+
+        raise QuestionGenerationError(
+            "Gemini returned difficulty "
+            f"'{question.difficulty}' instead of "
+            f"requested '{difficulty}'."
+        )
+
+    # --------------------------------------------------------
+    # Backend duplicate guard
+    # --------------------------------------------------------
+
+    normalized_new_question = (
+        " ".join(
+            question.question_text
+            .lower()
+            .split()
+        )
+    )
+
+    for old_question in previous_questions:
+
+        normalized_old_question = (
+            " ".join(
+                old_question
+                .lower()
+                .split()
+            )
+        )
+
+        if (
+            normalized_new_question
+            == normalized_old_question
+        ):
+
+            raise QuestionGenerationError(
+                "Gemini generated a duplicate question."
+            )
+
     return question
 
 
 # ============================================================
-# 1.5 QUESTION VALIDATION
+# QUESTION VALIDATION
 # ============================================================
 
 @with_retry(
@@ -397,32 +533,35 @@ async def validate_question(
 ) -> ValidationResult:
 
     if client is None:
+
         raise QuestionGenerationError(
             "Gemini client is not initialized."
         )
 
     correct_indices = [
         i
-        for i, option in enumerate(question.options)
+        for i, option in enumerate(
+            question.options
+        )
         if option.is_correct
     ]
 
     prompt = (
         "You are an expert educational question validator.\n\n"
 
-        "Check whether this multiple-choice question has "
-        "exactly one unambiguously correct answer.\n\n"
+        "Check whether this multiple-choice question "
+        "has exactly one unambiguously correct answer.\n\n"
 
         f"Question:\n{question.question_text}\n\n"
 
-        f"Options:\n"
+        "Options:\n"
         f"{[option.text for option in question.options]}\n\n"
 
-        f"Intended correct answer index:\n"
+        "Intended correct answer index:\n"
         f"{correct_indices}\n\n"
 
-        "Return passed=true only if the intended answer is "
-        "clearly correct and all distractors are clearly wrong."
+        "Return passed=true only if the intended answer "
+        "is clearly correct and all distractors are clearly wrong."
     )
 
     response = await client.aio.models.generate_content(
@@ -444,25 +583,31 @@ async def validate_question(
 
 
 # ============================================================
-# 1.5B GENERATE + VALIDATE
+# GENERATE + VALIDATE
 # ============================================================
 
 async def generate_validated_question(
     concept: Concept,
     difficulty: Difficulty,
+    previous_questions: list[str] | None = None,
 ) -> QuestionDraft:
+
+    previous_questions = (
+        previous_questions or []
+    )
 
     last_error = None
 
-    # Try more than once so one bad Gemini response
-    # does not kill the entire adaptive quiz.
-    for attempt in range(2):
+    # Multiple attempts are important because Gemini
+    # may occasionally produce a duplicate or invalid question.
+    for attempt in range(4):
 
         try:
 
             question = await generate_question(
-                concept,
-                difficulty,
+                concept=concept,
+                difficulty=difficulty,
+                previous_questions=previous_questions,
             )
 
             validation = await validate_question(
@@ -483,14 +628,14 @@ async def generate_validated_question(
             last_error = str(e)
 
     raise ValidationFailedError(
-        f"Could not generate a valid question for "
-        f"'{concept.label}' at {difficulty} difficulty. "
+        f"Could not generate a valid unique question "
+        f"for '{concept.label}' at {difficulty} difficulty. "
         f"{last_error}"
     )
 
 
 # ============================================================
-# 1.6 WRONG-ANSWER EXPLANATION
+# WRONG-ANSWER EXPLANATION
 # ============================================================
 
 @with_retry(retries=2)
@@ -504,7 +649,10 @@ async def generate_explanation(
     ]
 
     if selected_option.is_correct:
-        return "That is the correct answer! Well done."
+
+        return (
+            "That is the correct answer! Well done."
+        )
 
     misconception = (
         selected_option.misconception_tag
@@ -532,7 +680,7 @@ async def generate_explanation(
 
 
 # ============================================================
-# 1.7 END-OF-QUIZ SUMMARY
+# END-OF-QUIZ SUMMARY
 # ============================================================
 
 @with_retry(retries=2)
@@ -578,7 +726,7 @@ async def generate_quiz_summary(
 
 
 # ============================================================
-# 1.8 STRETCH: PAST PAPER CALIBRATION
+# STRETCH: PAST PAPER CALIBRATION
 # ============================================================
 
 @with_retry(retries=1)
@@ -586,7 +734,9 @@ async def analyze_past_paper(
     pdf_bytes: bytes,
 ) -> CalibrationEstimate:
 
-    chunks = extract_and_chunk(pdf_bytes)[:3]
+    chunks = extract_and_chunk(
+        pdf_bytes
+    )[:3]
 
     combined_text = "\n\n".join(
         chunk.text
@@ -615,7 +765,7 @@ async def analyze_past_paper(
 
 
 # ============================================================
-# 1.9 TUTOR FOLLOW-UP CHAT
+# TUTOR FOLLOW-UP CHAT
 # ============================================================
 
 @with_retry(retries=2)
@@ -627,9 +777,11 @@ async def tutor_followup(
 
     contents = [
         genai.types.Content(
-            role="user"
-            if turn.role == "user"
-            else "model",
+            role=(
+                "user"
+                if turn.role == "user"
+                else "model"
+            ),
             parts=[
                 genai.types.Part.from_text(
                     text=turn.text

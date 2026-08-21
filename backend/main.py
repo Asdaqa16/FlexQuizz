@@ -4,6 +4,7 @@ from fastapi import (
     File,
     HTTPException,
 )
+
 from fastapi.middleware.cors import CORSMiddleware
 
 import os
@@ -12,8 +13,11 @@ import sys
 import uuid
 
 from dotenv import load_dotenv
+
 from pydantic import BaseModel
+
 from typing import Literal
+
 
 load_dotenv()
 
@@ -34,6 +38,7 @@ AI_LAYER_PATH = os.path.join(
 )
 
 if AI_LAYER_PATH not in sys.path:
+
     sys.path.insert(
         0,
         AI_LAYER_PATH,
@@ -41,7 +46,7 @@ if AI_LAYER_PATH not in sys.path:
 
 
 # ============================================================
-# IMPORT AI MODELS
+# MODELS
 # ============================================================
 
 from models import (
@@ -61,10 +66,12 @@ app = FastAPI(
     title="FlexQuizz API"
 )
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "http://127.0.0.1:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -73,12 +80,12 @@ app.add_middleware(
 
 
 # ============================================================
-# IN-MEMORY ADAPTIVE SESSIONS
+# ADAPTIVE SESSIONS
 # ============================================================
 
 adaptive_sessions: dict[
     str,
-    AdaptiveSession
+    AdaptiveSession,
 ] = {}
 
 
@@ -88,6 +95,7 @@ adaptive_sessions: dict[
 
 @app.get("/")
 def root():
+
     return {
         "message": "FlexQuizz API is running"
     }
@@ -101,10 +109,14 @@ async def test_ai():
         import ai_core
 
         return {
-            "message": "AI Layer imported successfully",
+            "message": (
+                "AI Layer imported successfully"
+            ),
+
             "api_key_loaded": bool(
                 ai_core.api_key
             ),
+
             "gemini_client_exists": (
                 ai_core.client is not None
             ),
@@ -118,7 +130,7 @@ async def test_ai():
 
 
 # ============================================================
-# HELPERS
+# ADAPTIVE ENGINE CONSTANTS
 # ============================================================
 
 DIFFICULTY_ORDER = [
@@ -127,12 +139,17 @@ DIFFICULTY_ORDER = [
     "hard",
 ]
 
+
 SELECTION_WEIGHTS = {
     "easy": 3,
     "medium": 2,
     "hard": 1,
 }
 
+
+# ============================================================
+# DIFFICULTY CLAMP
+# ============================================================
 
 def clamp_difficulty(
     difficulty: Difficulty,
@@ -151,8 +168,14 @@ def clamp_difficulty(
         ),
     )
 
-    return DIFFICULTY_ORDER[new_index]
+    return DIFFICULTY_ORDER[
+        new_index
+    ]
 
+
+# ============================================================
+# UPDATE ONE CONCEPT
+# ============================================================
 
 def update_concept_state(
     state: ConceptState,
@@ -166,12 +189,13 @@ def update_concept_state(
     )
 
     # --------------------------------------------------------
-    # If the student changed direction, reset the streak
-    # to 1 in the new direction.
+    # Streak handling
     # --------------------------------------------------------
 
     if state.streak_direction != direction:
 
+        # Opposite answer breaks the previous streak.
+        # Start a new streak at 1.
         state.streak_direction = direction
         state.streak_count = 1
 
@@ -179,24 +203,29 @@ def update_concept_state(
 
         state.streak_count += 1
 
+
     # --------------------------------------------------------
-    # Track total performance.
+    # Statistics
     # --------------------------------------------------------
 
     state.times_asked += 1
 
     if is_correct:
+
         state.correct_count += 1
+
     else:
+
         state.incorrect_count += 1
 
+
     # --------------------------------------------------------
-    # Two consecutive correct answers.
+    # 2 CORRECT IN A ROW
     # --------------------------------------------------------
 
     if (
         is_correct
-        and state.streak_count >= 2
+        and state.streak_count == 2
     ):
 
         state.difficulty = clamp_difficulty(
@@ -204,16 +233,18 @@ def update_concept_state(
             +1,
         )
 
+        # Reset after a difficulty movement.
         state.streak_count = 0
         state.streak_direction = ""
 
+
     # --------------------------------------------------------
-    # Two consecutive incorrect answers.
+    # 2 INCORRECT IN A ROW
     # --------------------------------------------------------
 
     elif (
         not is_correct
-        and state.streak_count >= 2
+        and state.streak_count == 2
     ):
 
         state.difficulty = clamp_difficulty(
@@ -221,11 +252,17 @@ def update_concept_state(
             -1,
         )
 
+        # Reset after a difficulty movement.
         state.streak_count = 0
         state.streak_direction = ""
 
+
     return state
 
+
+# ============================================================
+# WEIGHTED CONCEPT SELECTION
+# ============================================================
 
 def choose_weighted_concept(
     session: AdaptiveSession,
@@ -234,10 +271,12 @@ def choose_weighted_concept(
     concepts = session.concepts
 
     if not concepts:
+
         raise HTTPException(
             status_code=400,
             detail="No concepts are available.",
         )
+
 
     weights = []
 
@@ -253,12 +292,31 @@ def choose_weighted_concept(
             ]
         )
 
+
     return random.choices(
         concepts,
         weights=weights,
         k=1,
     )[0]
 
+
+# ============================================================
+# PREVIOUS QUESTION TEXTS
+# ============================================================
+
+def get_previous_question_texts(
+    session: AdaptiveSession,
+) -> list[str]:
+
+    return [
+        item.question.question_text
+        for item in session.history
+    ]
+
+
+# ============================================================
+# GENERATE NEXT UNIQUE QUESTION
+# ============================================================
 
 async def generate_next_question(
     session: AdaptiveSession,
@@ -268,28 +326,67 @@ async def generate_next_question(
         generate_validated_question,
     )
 
+
+    # --------------------------------------------------------
+    # 1. Choose concept using adaptive weights.
+    # --------------------------------------------------------
+
     concept = choose_weighted_concept(
         session
     )
+
 
     state = session.concept_states[
         concept.label
     ]
 
+
+    # --------------------------------------------------------
+    # 2. Use THAT concept's current difficulty.
+    # --------------------------------------------------------
+
     difficulty = state.difficulty
 
-    question = await generate_validated_question(
-        concept,
-        difficulty,
+
+    # --------------------------------------------------------
+    # 3. Give Gemini previous questions so it avoids
+    # duplicates.
+    # --------------------------------------------------------
+
+    previous_questions = (
+        get_previous_question_texts(
+            session
+        )
     )
+
+
+    question = await generate_validated_question(
+
+        concept=concept,
+
+        difficulty=difficulty,
+
+        previous_questions=previous_questions,
+    )
+
+
+    # --------------------------------------------------------
+    # 4. Assign the NEXT question number.
+    # --------------------------------------------------------
 
     question_number = (
         session.questions_asked + 1
     )
 
+
     session.questions_asked = (
         question_number
     )
+
+
+    # --------------------------------------------------------
+    # 5. Store active question.
+    # --------------------------------------------------------
 
     session.current_concept_label = (
         concept.label
@@ -303,6 +400,11 @@ async def generate_next_question(
         question_number
     )
 
+
+    # --------------------------------------------------------
+    # 6. Add to history.
+    # --------------------------------------------------------
+
     from models import AdaptiveQuestion
 
     session.history.append(
@@ -314,6 +416,7 @@ async def generate_next_question(
         )
     )
 
+
     return (
         concept,
         state,
@@ -321,6 +424,10 @@ async def generate_next_question(
         question_number,
     )
 
+
+# ============================================================
+# READ UPLOADED MATERIAL
+# ============================================================
 
 async def read_uploaded_material(
     file: UploadFile,
@@ -332,9 +439,6 @@ async def read_uploaded_material(
         file.filename or ""
     ).lower()
 
-    # --------------------------------------------------------
-    # Text / Markdown
-    # --------------------------------------------------------
 
     if (
         filename.endswith(".txt")
@@ -343,14 +447,17 @@ async def read_uploaded_material(
     ):
 
         try:
+
             text = file_bytes.decode(
                 "utf-8"
             )
+
         except UnicodeDecodeError:
 
             text = file_bytes.decode(
                 "latin-1"
             )
+
 
         from ai_core import (
             extract_text_and_chunk,
@@ -360,11 +467,10 @@ async def read_uploaded_material(
             text
         )
 
-    # --------------------------------------------------------
-    # PDF
-    # --------------------------------------------------------
 
-    from ai_core import extract_and_chunk
+    from ai_core import (
+        extract_and_chunk,
+    )
 
     return extract_and_chunk(
         file_bytes
@@ -372,12 +478,15 @@ async def read_uploaded_material(
 
 
 # ============================================================
-# SINGLE QUESTION GENERATION
+# SINGLE QUESTION
 # ============================================================
 
 class QuestionRequest(BaseModel):
+
     concept: str
+
     description: str
+
     difficulty: Literal[
         "easy",
         "medium",
@@ -394,16 +503,19 @@ async def generate_question_api(
         generate_validated_question,
     )
 
+
     concept = Concept(
         label=request.concept,
         description=request.description,
         source_chunk_indices=[0],
     )
 
+
     question = await generate_validated_question(
         concept,
         request.difficulty,
     )
+
 
     return question.model_dump()
 
@@ -421,17 +533,22 @@ async def extract_concepts_api(
         extract_concepts,
     )
 
+
     chunks = await read_uploaded_material(
         file
     )
+
 
     concepts = await extract_concepts(
         chunks
     )
 
+
     return {
         "filename": file.filename,
+
         "chunk_count": len(chunks),
+
         "concepts": [
             concept.model_dump()
             for concept in concepts
@@ -440,13 +557,15 @@ async def extract_concepts_api(
 
 
 # ============================================================
-# ADAPTIVE QUIZ — START
+# START ADAPTIVE QUIZ
 # ============================================================
 
 @app.post("/start-adaptive-quiz")
 async def start_adaptive_quiz(
     file: UploadFile = File(...),
+
     difficulty: Difficulty = "medium",
+
     question_count: int = 10,
 ):
 
@@ -455,16 +574,26 @@ async def start_adaptive_quiz(
         deduplicate_concepts,
     )
 
+
     question_count = max(
         1,
-        min(question_count, 50),
+        min(
+            question_count,
+            50,
+        ),
     )
 
+
     try:
+
+        # ----------------------------------------------------
+        # Read material.
+        # ----------------------------------------------------
 
         chunks = await read_uploaded_material(
             file
         )
+
 
         if not chunks:
 
@@ -476,15 +605,24 @@ async def start_adaptive_quiz(
                 ),
             )
 
+
+        # ----------------------------------------------------
+        # Extract concepts.
+        # ----------------------------------------------------
+
         concept_drafts = (
-            await extract_concepts(chunks)
+            await extract_concepts(
+                chunks
+            )
         )
+
 
         concepts = (
             await deduplicate_concepts(
                 concept_drafts
             )
         )
+
 
         if not concepts:
 
@@ -496,8 +634,9 @@ async def start_adaptive_quiz(
                 ),
             )
 
+
         # ----------------------------------------------------
-        # Initialize every concept independently.
+        # Initialize EVERY concept independently.
         # ----------------------------------------------------
 
         concept_states = {}
@@ -507,40 +646,66 @@ async def start_adaptive_quiz(
             concept_states[
                 concept.label
             ] = ConceptState(
-                concept_label=concept.label,
+
+                concept_label=(
+                    concept.label
+                ),
+
                 difficulty=difficulty,
+
                 streak_direction="",
+
                 streak_count=0,
+
                 times_asked=0,
+
                 correct_count=0,
+
                 incorrect_count=0,
             )
+
+
+        # ----------------------------------------------------
+        # Create session.
+        # ----------------------------------------------------
 
         session_id = str(
             uuid.uuid4()
         )
 
+
         session = AdaptiveSession(
+
             session_id=session_id,
+
             title=(
                 file.filename
                 or "Adaptive Quiz"
             ),
-            total_questions=question_count,
-            starting_difficulty=difficulty,
+
+            total_questions=(
+                question_count
+            ),
+
+            starting_difficulty=(
+                difficulty
+            ),
+
             concepts=concepts,
-            concept_states=concept_states,
+
+            concept_states=(
+                concept_states
+            ),
         )
+
 
         adaptive_sessions[
             session_id
         ] = session
 
+
         # ----------------------------------------------------
-        # FIRST QUESTION
-        #
-        # This is deliberately generated here and returned
-        # directly. This fixes the old first-question problem.
+        # Generate Q1 RIGHT NOW.
         # ----------------------------------------------------
 
         (
@@ -552,21 +717,41 @@ async def start_adaptive_quiz(
             session
         )
 
+
         return {
+
             "session_id": session_id,
+
             "title": (
                 file.filename
                 or "Adaptive Quiz"
             ),
-            "total_questions": question_count,
-            "question_number": question_number,
-            "concept_label": concept.label,
-            "difficulty": state.difficulty,
-            "question": question.model_dump(),
+
+            "total_questions": (
+                question_count
+            ),
+
+            "question_number": (
+                question_number
+            ),
+
+            "concept_label": (
+                concept.label
+            ),
+
+            "difficulty": (
+                state.difficulty
+            ),
+
+            "question": (
+                question.model_dump()
+            ),
         }
+
 
     except HTTPException:
         raise
+
 
     except Exception as e:
 
@@ -585,7 +770,7 @@ async def start_adaptive_quiz(
 
 
 # ============================================================
-# ADAPTIVE QUIZ — ANSWER + NEXT
+# ANSWER ADAPTIVE QUESTION
 # ============================================================
 
 @app.post("/answer-adaptive-question")
@@ -597,12 +782,20 @@ async def answer_adaptive_question(
         request.session_id
     )
 
+
     if session is None:
 
         raise HTTPException(
             status_code=404,
-            detail="Adaptive quiz session not found.",
+            detail=(
+                "Adaptive quiz session not found."
+            ),
         )
+
+
+    # --------------------------------------------------------
+    # Make sure there is an active question.
+    # --------------------------------------------------------
 
     if (
         session.current_question is None
@@ -612,8 +805,15 @@ async def answer_adaptive_question(
 
         raise HTTPException(
             status_code=400,
-            detail="There is no active question.",
+            detail=(
+                "There is no active question."
+            ),
         )
+
+
+    # --------------------------------------------------------
+    # Prevent duplicate submissions.
+    # --------------------------------------------------------
 
     if (
         request.question_number
@@ -622,10 +822,19 @@ async def answer_adaptive_question(
 
         raise HTTPException(
             status_code=400,
-            detail="Question number does not match the active question.",
+            detail=(
+                "Question number does not match "
+                "the active question."
+            ),
         )
 
+
     question = session.current_question
+
+
+    # --------------------------------------------------------
+    # Validate answer index.
+    # --------------------------------------------------------
 
     if not (
         0
@@ -638,36 +847,38 @@ async def answer_adaptive_question(
             detail="Invalid answer option.",
         )
 
+
     # --------------------------------------------------------
-    # IMPORTANT:
-    #
-    # The backend determines correctness.
-    # The browser does NOT tell the backend whether
-    # the answer was correct.
+    # Backend determines correctness.
     # --------------------------------------------------------
 
     selected_option = question.options[
         request.selected_option_index
     ]
 
+
     was_correct = (
         selected_option.is_correct
     )
+
 
     concept_label = (
         session.current_concept_label
     )
 
+
     state = session.concept_states[
         concept_label
     ]
+
 
     difficulty_before = (
         state.difficulty
     )
 
+
     # --------------------------------------------------------
-    # UPDATE ONLY THE CONCEPT THAT WAS JUST ANSWERED.
+    # UPDATE ONLY THE ANSWERED CONCEPT.
     # --------------------------------------------------------
 
     state = update_concept_state(
@@ -675,9 +886,11 @@ async def answer_adaptive_question(
         was_correct,
     )
 
+
     difficulty_after = (
         state.difficulty
     )
+
 
     # --------------------------------------------------------
     # QUIZ COMPLETE
@@ -689,35 +902,64 @@ async def answer_adaptive_question(
     ):
 
         session.current_question = None
+
         session.current_concept_label = None
+
         session.current_question_number = None
 
+
         return {
-            "session_id": session.session_id,
+
+            "session_id": (
+                session.session_id
+            ),
+
             "completed": True,
-            "question_number": request.question_number,
-            "total_questions": session.total_questions,
-            "was_correct": was_correct,
-            "answered_concept": concept_label,
-            "answered_difficulty": difficulty_before,
-            "new_difficulty": difficulty_after,
+
+            "question_number": (
+                request.question_number
+            ),
+
+            "total_questions": (
+                session.total_questions
+            ),
+
+            "was_correct": (
+                was_correct
+            ),
+
+            "answered_concept": (
+                concept_label
+            ),
+
+            "answered_difficulty": (
+                difficulty_before
+            ),
+
+            "new_difficulty": (
+                difficulty_after
+            ),
+
             "streak_direction": (
                 state.streak_direction
             ),
+
             "streak_count": (
                 state.streak_count
             ),
+
+            "next_question_number": None,
+
             "next_concept": None,
+
             "next_difficulty": None,
+
             "question": None,
         }
 
+
     # --------------------------------------------------------
-    # OTHERWISE:
-    #
-    # 1. Weighted-pick concept
-    # 2. Use that concept's current difficulty
-    # 3. Generate next question
+    # Generate next question.
     # --------------------------------------------------------
 
     try:
@@ -730,6 +972,7 @@ async def answer_adaptive_question(
         ) = await generate_next_question(
             session
         )
+
 
     except Exception as e:
 
@@ -747,25 +990,58 @@ async def answer_adaptive_question(
             ),
         )
 
+
+    # --------------------------------------------------------
+    # IMPORTANT:
+    #
+    # Return the NEXT question number.
+    #
+    # This fixes the bug where Q2 received ID 1
+    # and inherited Q1's selected option.
+    # --------------------------------------------------------
+
     return {
-        "session_id": session.session_id,
+
+        "session_id": (
+            session.session_id
+        ),
+
         "completed": False,
 
-        "question_number": request.question_number,
-        "total_questions": session.total_questions,
+        "question_number": (
+            request.question_number
+        ),
 
-        "was_correct": was_correct,
+        "total_questions": (
+            session.total_questions
+        ),
 
-        "answered_concept": concept_label,
-        "answered_difficulty": difficulty_before,
+        "was_correct": (
+            was_correct
+        ),
 
-        "new_difficulty": difficulty_after,
+        "answered_concept": (
+            concept_label
+        ),
+
+        "answered_difficulty": (
+            difficulty_before
+        ),
+
+        "new_difficulty": (
+            difficulty_after
+        ),
 
         "streak_direction": (
             state.streak_direction
         ),
+
         "streak_count": (
             state.streak_count
+        ),
+
+        "next_question_number": (
+            next_question_number
         ),
 
         "next_concept": (
@@ -784,15 +1060,14 @@ async def answer_adaptive_question(
 
 # ============================================================
 # LEGACY BATCH GENERATION
-#
-# Kept so other existing code does not suddenly break.
-# The adaptive frontend will use /start-adaptive-quiz instead.
 # ============================================================
 
 @app.post("/generate-quiz")
 async def generate_quiz_api(
     file: UploadFile = File(...),
+
     difficulty: Difficulty = "easy",
+
     question_count: int = 10,
 ):
 
@@ -802,14 +1077,20 @@ async def generate_quiz_api(
         generate_validated_question,
     )
 
+
     question_count = max(
         1,
-        min(question_count, 50),
+        min(
+            question_count,
+            50,
+        ),
     )
+
 
     chunks = await read_uploaded_material(
         file
     )
+
 
     if not chunks:
 
@@ -821,15 +1102,20 @@ async def generate_quiz_api(
             "questions": [],
         }
 
+
     concept_drafts = (
-        await extract_concepts(chunks)
+        await extract_concepts(
+            chunks
+        )
     )
+
 
     concepts = (
         await deduplicate_concepts(
             concept_drafts
         )
     )
+
 
     if not concepts:
 
@@ -841,7 +1127,11 @@ async def generate_quiz_api(
             "questions": [],
         }
 
+
     questions = []
+
+    previous_questions = []
+
 
     for i in range(question_count):
 
@@ -849,28 +1139,48 @@ async def generate_quiz_api(
             i % len(concepts)
         ]
 
+
         question = (
             await generate_validated_question(
+
                 concept,
+
                 difficulty,
+
+                previous_questions=(
+                    previous_questions
+                ),
             )
         )
+
+
+        previous_questions.append(
+            question.question_text
+        )
+
 
         questions.append(
             {
                 "concept": (
                     concept.model_dump()
                 ),
+
                 "question": (
                     question.model_dump()
                 ),
             }
         )
 
+
     return {
+
         "filename": file.filename,
+
         "difficulty": difficulty,
+
         "concept_count": len(concepts),
+
         "question_count": len(questions),
+
         "questions": questions,
     }
