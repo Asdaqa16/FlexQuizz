@@ -113,7 +113,8 @@ def with_retry(
 # PDF EXTRACTION
 # ============================================================
 
-def extract_and_chunk(
+@with_retry(retries=1, custom_exc=PDFProcessingError)
+async def extract_and_chunk(
     pdf_bytes: bytes,
 ) -> list[Chunk]:
 
@@ -190,6 +191,45 @@ def extract_and_chunk(
                     ),
                 )
             )
+
+        # --------------------------------------------------------
+        # OCR Fallback for scanned / handwritten PDFs
+        # --------------------------------------------------------
+        
+        total_words = sum(len(chunk.text.split()) for chunk in chunks)
+        
+        if total_words < 20:
+            
+            if client is None:
+                raise PDFProcessingError(
+                    "Gemini client is not initialized for OCR fallback."
+                )
+            
+            print(f"[DEBUG] total_words={total_words}. Falling back to Gemini OCR.")
+            
+            prompt = (
+                "Please transcribe all the readable text from this document "
+                "as accurately as possible. Output only the transcribed text."
+            )
+            
+            try:
+                response = await client.aio.models.generate_content(
+                    model=MODEL_TEXT,
+                    contents=[
+                        prompt,
+                        genai.types.Part.from_bytes(
+                            data=pdf_bytes,
+                            mime_type="application/pdf",
+                        )
+                    ]
+                )
+                print(f"[DEBUG] Gemini OCR response text: {repr(response.text)}")
+                transcribed_text = response.text or ""
+            except Exception as gemini_e:
+                print(f"[DEBUG] Gemini OCR failed: {repr(gemini_e)}")
+                transcribed_text = ""
+                
+            return extract_text_and_chunk(transcribed_text)
 
         return chunks
 

@@ -472,7 +472,7 @@ async def read_uploaded_material(
         extract_and_chunk,
     )
 
-    return extract_and_chunk(
+    return await extract_and_chunk(
         file_bytes
     )
 
