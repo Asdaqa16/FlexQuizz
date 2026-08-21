@@ -1,3 +1,4 @@
+import random
 import asyncio
 import io
 import logging
@@ -655,6 +656,13 @@ async def generate_validated_question(
             )
 
             if validation.passed:
+
+                # Randomize answer positions after validation.
+                # The is_correct flag stays attached to each option.
+
+                random.shuffle(
+                    question.options
+                )
 
                 return question
 

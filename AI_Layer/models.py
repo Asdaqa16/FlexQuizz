@@ -74,22 +74,14 @@ class ValidationResult(BaseModel):
 
 class ConceptState(BaseModel):
     """
-    Runtime adaptive state for one concept.
+    Runtime performance state for one concept.
 
-    Every concept has its own independent:
-    - difficulty
-    - streak direction
-    - streak count
-    - performance statistics
+    Difficulty and answer streak are GLOBAL to the quiz session.
+    This object only tracks how well the student is doing on
+    this particular concept.
     """
 
     concept_label: str
-
-    difficulty: Difficulty = "medium"
-
-    streak_direction: StreakDirection = ""
-
-    streak_count: int = 0
 
     times_asked: int = 0
 
@@ -124,6 +116,12 @@ class AdaptiveSession(BaseModel):
     total_questions: int
 
     starting_difficulty: Difficulty
+
+    current_difficulty: Difficulty
+
+    streak_direction: StreakDirection = ""
+
+    streak_count: int = 0
 
     concepts: list[Concept]
 

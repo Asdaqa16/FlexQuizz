@@ -3,6 +3,7 @@ from fastapi import (
     UploadFile,
     File,
     HTTPException,
+    Form,
 )
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -139,11 +140,10 @@ DIFFICULTY_ORDER = [
     "hard",
 ]
 
-
-SELECTION_WEIGHTS = {
-    "easy": 3,
-    "medium": 2,
-    "hard": 1,
+CONCEPT_WEIGHTS = {
+    "weak": 3,
+    "moderate": 2,
+    "strong": 1,
 }
 
 
@@ -177,85 +177,23 @@ def clamp_difficulty(
 # UPDATE ONE CONCEPT
 # ============================================================
 
-def update_concept_state(
+def update_concept_performance(
     state: ConceptState,
     is_correct: bool,
 ) -> ConceptState:
+    """
+    Update performance statistics for the answered concept.
 
-    direction = (
-        "correct"
-        if is_correct
-        else "incorrect"
-    )
-
-    # --------------------------------------------------------
-    # Streak handling
-    # --------------------------------------------------------
-
-    if state.streak_direction != direction:
-
-        # Opposite answer breaks the previous streak.
-        # Start a new streak at 1.
-        state.streak_direction = direction
-        state.streak_count = 1
-
-    else:
-
-        state.streak_count += 1
-
-
-    # --------------------------------------------------------
-    # Statistics
-    # --------------------------------------------------------
+    Concept performance is tracked independently from the
+    global adaptive difficulty.
+    """
 
     state.times_asked += 1
 
     if is_correct:
-
         state.correct_count += 1
-
     else:
-
         state.incorrect_count += 1
-
-
-    # --------------------------------------------------------
-    # 2 CORRECT IN A ROW
-    # --------------------------------------------------------
-
-    if (
-        is_correct
-        and state.streak_count == 2
-    ):
-
-        state.difficulty = clamp_difficulty(
-            state.difficulty,
-            +1,
-        )
-
-        # Reset after a difficulty movement.
-        state.streak_count = 0
-        state.streak_direction = ""
-
-
-    # --------------------------------------------------------
-    # 2 INCORRECT IN A ROW
-    # --------------------------------------------------------
-
-    elif (
-        not is_correct
-        and state.streak_count == 2
-    ):
-
-        state.difficulty = clamp_difficulty(
-            state.difficulty,
-            -1,
-        )
-
-        # Reset after a difficulty movement.
-        state.streak_count = 0
-        state.streak_direction = ""
-
 
     return state
 
@@ -271,12 +209,10 @@ def choose_weighted_concept(
     concepts = session.concepts
 
     if not concepts:
-
         raise HTTPException(
             status_code=400,
             detail="No concepts are available.",
         )
-
 
     weights = []
 
@@ -286,12 +222,25 @@ def choose_weighted_concept(
             concept.label
         ]
 
-        weights.append(
-            SELECTION_WEIGHTS[
-                state.difficulty
-            ]
-        )
+        if state.times_asked == 0:
+            weight = CONCEPT_WEIGHTS["weak"]
 
+        else:
+            accuracy = (
+                state.correct_count /
+                state.times_asked
+            )
+
+            if accuracy < 0.50:
+                weight = CONCEPT_WEIGHTS["weak"]
+
+            elif accuracy < 0.80:
+                weight = CONCEPT_WEIGHTS["moderate"]
+
+            else:
+                weight = CONCEPT_WEIGHTS["strong"]
+
+        weights.append(weight)
 
     return random.choices(
         concepts,
@@ -336,16 +285,14 @@ async def generate_next_question(
     )
 
 
-    state = session.concept_states[
-        concept.label
-    ]
+    
 
 
     # --------------------------------------------------------
     # 2. Use THAT concept's current difficulty.
     # --------------------------------------------------------
 
-    difficulty = state.difficulty
+    difficulty = session.current_difficulty
 
 
     # --------------------------------------------------------
@@ -419,7 +366,6 @@ async def generate_next_question(
 
     return (
         concept,
-        state,
         question,
         question_number,
     )
@@ -564,6 +510,8 @@ async def extract_concepts_api(
 async def start_adaptive_quiz(
     file: UploadFile = File(...),
 
+    title: str = Form("Adaptive Quiz"),
+
     difficulty: Difficulty = "medium",
 
     question_count: int = 10,
@@ -638,33 +586,18 @@ async def start_adaptive_quiz(
         # ----------------------------------------------------
         # Initialize EVERY concept independently.
         # ----------------------------------------------------
-
         concept_states = {}
 
         for concept in concepts:
-
             concept_states[
                 concept.label
             ] = ConceptState(
-
-                concept_label=(
-                    concept.label
-                ),
-
+                concept_label=concept.label,
                 difficulty=difficulty,
-
-                streak_direction="",
-
-                streak_count=0,
-
                 times_asked=0,
-
                 correct_count=0,
-
                 incorrect_count=0,
             )
-
-
         # ----------------------------------------------------
         # Create session.
         # ----------------------------------------------------
@@ -675,27 +608,15 @@ async def start_adaptive_quiz(
 
 
         session = AdaptiveSession(
-
             session_id=session_id,
-
-            title=(
-                file.filename
-                or "Adaptive Quiz"
-            ),
-
-            total_questions=(
-                question_count
-            ),
-
-            starting_difficulty=(
-                difficulty
-            ),
-
+            title=title,
+            total_questions=question_count,
+            starting_difficulty=difficulty,
+            current_difficulty=difficulty,
+            streak_direction="",
+            streak_count=0,
             concepts=concepts,
-
-            concept_states=(
-                concept_states
-            ),
+            concept_states=concept_states,
         )
 
 
@@ -710,7 +631,6 @@ async def start_adaptive_quiz(
 
         (
             concept,
-            state,
             question,
             question_number,
         ) = await generate_next_question(
@@ -740,7 +660,7 @@ async def start_adaptive_quiz(
             ),
 
             "difficulty": (
-                state.difficulty
+                session.current_difficulty
             ),
 
             "question": (
@@ -867,30 +787,88 @@ async def answer_adaptive_question(
     )
 
 
+    # --------------------------------------------------------
+# Update performance for the answered concept.
+# Difficulty and streak are GLOBAL to the quiz.
+# --------------------------------------------------------
+
     state = session.concept_states[
         concept_label
     ]
 
-
-    difficulty_before = (
-        state.difficulty
-    )
-
-
-    # --------------------------------------------------------
-    # UPDATE ONLY THE ANSWERED CONCEPT.
-    # --------------------------------------------------------
-
-    state = update_concept_state(
+    state = update_concept_performance(
         state,
         was_correct,
     )
 
+    # --------------------------------------------------------
+    # GLOBAL ADAPTIVE STREAK
+    # --------------------------------------------------------
 
-    difficulty_after = (
-        state.difficulty
+    difficulty_before = (
+        session.current_difficulty
     )
 
+    direction = (
+        "correct"
+        if was_correct
+        else "incorrect"
+    )
+
+    # If the answer direction changed, start a new streak.
+    if session.streak_direction != direction:
+
+        session.streak_direction = direction
+        session.streak_count = 1
+
+    else:
+
+        session.streak_count += 1
+
+
+    # --------------------------------------------------------
+    # TWO CONSECUTIVE CORRECT ANSWERS
+    # --------------------------------------------------------
+
+    if (
+        was_correct
+        and session.streak_count == 2
+    ):
+
+        session.current_difficulty = (
+            clamp_difficulty(
+                session.current_difficulty,
+                +1,
+            )
+        )
+
+        session.streak_count = 0
+        session.streak_direction = ""
+
+
+    # --------------------------------------------------------
+    # TWO CONSECUTIVE INCORRECT ANSWERS
+    # --------------------------------------------------------
+
+    elif (
+        not was_correct
+        and session.streak_count == 2
+    ):
+
+        session.current_difficulty = (
+            clamp_difficulty(
+                session.current_difficulty,
+                -1,
+            )
+        )
+
+        session.streak_count = 0
+        session.streak_direction = ""
+
+
+    difficulty_after = (
+        session.current_difficulty
+    )
 
     # --------------------------------------------------------
     # QUIZ COMPLETE
@@ -902,61 +880,25 @@ async def answer_adaptive_question(
     ):
 
         session.current_question = None
-
         session.current_concept_label = None
-
         session.current_question_number = None
 
-
         return {
-
-            "session_id": (
-                session.session_id
-            ),
-
+            "session_id": session.session_id,
             "completed": True,
-
-            "question_number": (
-                request.question_number
-            ),
-
-            "total_questions": (
-                session.total_questions
-            ),
-
-            "was_correct": (
-                was_correct
-            ),
-
-            "answered_concept": (
-                concept_label
-            ),
-
-            "answered_difficulty": (
-                difficulty_before
-            ),
-
-            "new_difficulty": (
-                difficulty_after
-            ),
-
-            "streak_direction": (
-                state.streak_direction
-            ),
-
-            "streak_count": (
-                state.streak_count
-            ),
-
+            "question_number": request.question_number,
+            "total_questions": session.total_questions,
+            "was_correct": was_correct,
+            "answered_concept": concept_label,
+            "answered_difficulty": difficulty_before,
+            "new_difficulty": difficulty_after,
+            "streak_direction": session.streak_direction,
+            "streak_count": session.streak_count,
             "next_question_number": None,
-
             "next_concept": None,
-
             "next_difficulty": None,
-
             "question": None,
         }
-
 
     # --------------------------------------------------------
     # Generate next question.
@@ -966,13 +908,11 @@ async def answer_adaptive_question(
 
         (
             next_concept,
-            next_state,
             next_question,
             next_question_number,
         ) = await generate_next_question(
             session
         )
-
 
     except Exception as e:
 
@@ -1033,11 +973,11 @@ async def answer_adaptive_question(
         ),
 
         "streak_direction": (
-            state.streak_direction
+            session.streak_direction
         ),
 
         "streak_count": (
-            state.streak_count
+            session.streak_count
         ),
 
         "next_question_number": (
@@ -1049,7 +989,7 @@ async def answer_adaptive_question(
         ),
 
         "next_difficulty": (
-            next_state.difficulty
+            session.current_difficulty
         ),
 
         "question": (
