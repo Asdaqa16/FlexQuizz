@@ -29,7 +29,7 @@ import { ResultsView } from './components/Views/ResultsView';
 
 
 export default function App() {
-<<<<<<< HEAD
+
   const [currentView, setCurrentView] = useState<ViewMode>('login');
   const [dyslexiaMode, setDyslexiaMode] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState(INITIAL_USER_PROFILE);
@@ -49,8 +49,7 @@ export default function App() {
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
   const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
-=======
->>>>>>> 30e962cc8d4bb4b2e0e1da694889f46650445a23
+
 
   const [
     currentView,
@@ -150,7 +149,7 @@ export default function App() {
     let mounted = true;
 
 
-<<<<<<< HEAD
+
   const handleQuizComplete = (result: QuizResult) => {
   setQuizResult(result);
   setRecentHistory((prev) => [
@@ -214,10 +213,10 @@ export default function App() {
 
   setCurrentView('quiz-results');
 };
-=======
+
     const checkAuth =
       async () => {
->>>>>>> 30e962cc8d4bb4b2e0e1da694889f46650445a23
+
 
         await supabase.auth.getSession();
 
@@ -663,7 +662,7 @@ export default function App() {
             'dashboard' && (
 
             <DashboardView
-<<<<<<< HEAD
+
               setCurrentView={setCurrentView}
               userProfile={userProfile}
               onStartQuiz={handleStartQuiz}
@@ -671,7 +670,7 @@ export default function App() {
               recentHistory={recentHistory}
               quizResults={quizResults}
               onOpenUploadModal={() => setIsUploadModalOpen(true)}
-=======
+
 
               setCurrentView={
                 setCurrentView
@@ -699,7 +698,7 @@ export default function App() {
                 )
               }
 
->>>>>>> 30e962cc8d4bb4b2e0e1da694889f46650445a23
+
             />
 
           )}
