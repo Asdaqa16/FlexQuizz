@@ -281,13 +281,13 @@ export const ActiveQuizView: React.FC<ActiveQuizViewProps> = ({
                   <button
                     key={optIdx}
                     onClick={() => handleSelectOption(optIdx)}
-                    className={`w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between group ${
+                    className={`w-full min-w-0 p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between group ${
                       isSelected
                         ? 'border-[#7372A5] bg-[#ececf4] shadow-xs'
                         : 'border-[#d8d7e8] bg-white hover:border-[#7372A5]/50 hover:bg-[#ececf4]/30'
                     }`}
                   >
-                    <div className="flex items-center gap-3.5">
+                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
                       <span
                         className={`w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center transition-colors ${
                           isSelected
@@ -297,11 +297,13 @@ export const ActiveQuizView: React.FC<ActiveQuizViewProps> = ({
                       >
                         {optionLetters[optIdx]}
                       </span>
-                      <span className="text-sm font-semibold text-[#222138]">{opt}</span>
+                      <span className="text-sm font-semibold text-[#222138] break-words whitespace-normal min-w-0">
+                        {opt}
+                      </span>
                     </div>
 
                     <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                      className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
                         isSelected ? 'border-[#7372A5] bg-[#7372A5]' : 'border-gray-300'
                       }`}
                     >
@@ -322,28 +324,7 @@ export const ActiveQuizView: React.FC<ActiveQuizViewProps> = ({
               </button>
             )}
 
-            {/* Hint Accordion Card */}
-            <div className="pt-2">
-              {!showHint[currentQuestion.id] ? (
-                <button
-                  onClick={() => setShowHint((prev) => ({ ...prev, [currentQuestion.id]: true }))}
-                  className="flex items-center gap-2 text-xs font-bold text-[#7372A5] bg-[#ececf4] hover:bg-[#d8d7e8] px-4 py-2.5 rounded-xl transition-colors border border-[#d8d7e8]"
-                >
-                  <span className="material-symbols-outlined text-base">lightbulb</span>
-                  <span>Need a hint?</span>
-                </button>
-              ) : (
-                <div className="bg-amber-50/80 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
-                  <span className="material-symbols-outlined text-amber-600 text-xl mt-0.5">lightbulb</span>
-                  <div>
-                    <h4 className="text-xs font-bold text-amber-900 mb-0.5">Hint:</h4>
-                    <p className="text-xs text-amber-800 leading-relaxed font-medium">
-                      {currentQuestion.hint}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+            
 
           </div>
 

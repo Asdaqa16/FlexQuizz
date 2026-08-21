@@ -117,9 +117,6 @@ export const QuizUploadModal: React.FC<QuizUploadModalProps> = ({
         {/* Modal Header */}
         <div className="p-5 bg-[#7372A5] text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-              <span className="material-symbols-outlined text-2xl text-amber-300">auto_awesome</span>
-            </div>
             <div>
               <h3 className="font-bold text-lg font-display">Generate AI Adaptive Quiz</h3>
               <p className="text-xs text-gray-200">Upload notes, paste text, or enter a topic</p>
@@ -153,7 +150,7 @@ export const QuizUploadModal: React.FC<QuizUploadModalProps> = ({
                       : 'bg-[#ececf4] text-[#7372A5] hover:bg-[#d8d7e8] border border-[#d8d7e8]'
                   }`}
                 >
-                  ✨ {preset}
+                   {preset}
                 </button>
               ))}
             </div>

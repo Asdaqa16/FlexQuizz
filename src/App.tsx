@@ -15,9 +15,21 @@ export default function App() {
   const [dyslexiaMode, setDyslexiaMode] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState(INITIAL_USER_PROFILE);
   const [quizzesList, setQuizzesList] = useState<Quiz[]>(SAMPLE_QUIZZES);
+  const [recentHistory, setRecentHistory] = useState<
+  {
+    id: string;
+    title: string;
+    topic: string;
+    score: number;
+    date: string;
+    icon: string;
+    difficulty: string;
+  }[]
+>([]);
   const [activeQuiz, setActiveQuiz] = useState<Quiz>(SAMPLE_QUIZZES[0]);
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
+  const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
 
   // Sync Dyslexia Mode class to body
   useEffect(() => {
@@ -35,16 +47,68 @@ export default function App() {
 
 
   const handleQuizComplete = (result: QuizResult) => {
-    setQuizResult(result);
-    // Update user stats
-    setUserProfile((prev) => ({
-      ...prev,
-      totalQuizzesAttempted: prev.totalQuizzesAttempted + 1,
-      averageScore: Math.round((prev.averageScore * prev.totalQuizzesAttempted + result.scorePercentage) / (prev.totalQuizzesAttempted + 1)),
-      bestScore: Math.max(prev.bestScore, result.scorePercentage),
+  setQuizResult(result);
+  setRecentHistory((prev) => [
+  {
+    id: result.quizId,
+    title: result.quizTitle,
+    topic: activeQuiz?.topic || result.quizTitle,
+    score: result.scorePercentage,
+    date: 'Just now',
+    icon: 'quiz',
+    difficulty: activeQuiz?.difficulty || 'Medium',
+  },
+  ...prev,
+].slice(0, 4));
+
+  // Add this quiz to the current session
+  setQuizResults((prevResults) => {
+    const updatedResults = [...prevResults, result];
+
+    // Calculate real session statistics
+    const totalQuizzes = updatedResults.length;
+
+    const averageScore = Math.round(
+      updatedResults.reduce(
+        (sum, quiz) => sum + quiz.scorePercentage,
+        0
+      ) / totalQuizzes
+    );
+
+    const bestScore = Math.max(
+      ...updatedResults.map(
+        (quiz) => quiz.scorePercentage
+      )
+    );
+
+    const totalQuestions = updatedResults.reduce(
+      (sum, quiz) => sum + quiz.totalQuestions,
+      0
+    );
+
+    const totalCorrect = updatedResults.reduce(
+      (sum, quiz) => sum + quiz.correctAnswersCount,
+      0
+    );
+
+    const accuracy = Math.round(
+      (totalCorrect / totalQuestions) * 100
+    );
+
+    setUserProfile((profile) => ({
+      ...profile,
+      totalQuizzesAttempted: totalQuizzes,
+      averageScore,
+      bestScore,
+      accuracy,
+      overallProgress: averageScore,
     }));
-    setCurrentView('quiz-results');
-  };
+
+    return updatedResults;
+  });
+
+  setCurrentView('quiz-results');
+};
 
   const handleQuizGenerated = async (newQuiz: Quiz) => {
   const { data: { user } } = await supabase.auth.getUser();
@@ -144,7 +208,8 @@ export default function App() {
               userProfile={userProfile}
               onStartQuiz={handleStartQuiz}
               sampleQuizzes={quizzesList}
-              recentHistory={RECENT_QUIZZES_HISTORY}
+              recentHistory={recentHistory}
+              quizResults={quizResults}
               onOpenUploadModal={() => setIsUploadModalOpen(true)}
             />
           )}
