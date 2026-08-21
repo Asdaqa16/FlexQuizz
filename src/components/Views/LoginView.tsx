@@ -14,23 +14,30 @@ export const LoginView: React.FC<LoginViewProps> = ({
   setDyslexiaMode,
 }) => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+const [password, setPassword] = useState('');
+const [showPassword, setShowPassword] = useState(false);
+const [error, setError] = useState('');
+const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
+
+  setError('');
+  setLoading(true);
 
   const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
+  setLoading(false);
+
   if (error) {
-    alert(error.message);
+    setError(error.message);
     return;
   }
 
-  setCurrentView('landing');
+  setCurrentView('dashboard');
 };
 
   return (
@@ -187,13 +194,18 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 </button>
               </div>
             </div>
-
+{error && (
+  <p className="text-sm text-red-500">
+    {error}
+  </p>
+)}
             <button
-              type="submit"
-              className="w-full py-3 rounded-xl bg-[#7372A5] hover:bg-[#585785] text-white font-bold text-sm shadow-md transition-all"
-            >
-              Log In
-            </button>
+  type="submit"
+  disabled={loading}
+  className="w-full py-3 rounded-xl bg-[#7372A5] hover:bg-[#585785] text-white font-bold text-sm shadow-md transition-all disabled:opacity-50"
+>
+  {loading ? 'Logging in...' : 'Log In'}
+</button>
           </form>
 
           <div className="relative my-6 text-center">
