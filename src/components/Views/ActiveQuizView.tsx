@@ -1158,30 +1158,12 @@ export const ActiveQuizView: React.FC<
                       onClick={speakFullQuestion}
                       className="flex items-center gap-1.5 text-xs font-bold text-white bg-[#7372A5] hover:bg-[#585785] hover:scale-105 px-3 py-1.5 rounded-xl transition-all shadow-sm"
                     >
-                      🔊 Read Aloud
+                       Read Aloud
                     </button>
                   </>
                 )}
 
-                <button
-                  onClick={
-                    handleToggleFlag
-                  }
-                  className={`text-xs font-semibold ${
-                    flaggedQuestions[
-                      currentQuestion.id
-                    ]
-                      ? 'text-rose-600'
-                      : 'text-gray-400'
-                  }`}
-                >
-                  🚩{' '}
-                  {flaggedQuestions[
-                    currentQuestion.id
-                  ]
-                    ? 'Flagged'
-                    : 'Report issue'}
-                </button>
+                
               </div>
 
             </div>
@@ -1303,46 +1285,8 @@ export const ActiveQuizView: React.FC<
               )}
 
 
-            <div className="pt-2">
-
-              {!showHint[
-                currentQuestion.id
-              ] ? (
-
-                <button
-                  onClick={() =>
-                    setShowHint(
-                      (prev) => ({
-                        ...prev,
-                        [currentQuestion.id]:
-                          true,
-                      })
-                    )
-                  }
-                  className="flex items-center gap-2 text-xs font-bold text-[#7372A5] bg-[#ececf4] px-4 py-2.5 rounded-xl"
-                >
-                  💡 Need a hint?
-                </button>
-
-              ) : (
-
-                <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl">
-
-                  <h4 className="text-xs font-bold text-amber-900 mb-1">
-                    Hint:
-                  </h4>
-
-                  <p className="text-xs text-amber-800">
-                    {currentQuestion.hint ||
-                      'Think carefully about the core concept being tested.'}
-                  </p>
-
-                </div>
-
-              )}
-
-            </div>
-
+            
+                  
 
             {adaptiveError && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
