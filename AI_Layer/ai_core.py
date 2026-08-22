@@ -10,14 +10,14 @@ from google import genai
 from pydantic import TypeAdapter
 from pypdf import PdfReader
 
-from exceptions import (
+from AI_Layer.exceptions import (
     ConceptExtractionError,
     PDFProcessingError,
     QuestionGenerationError,
     ValidationFailedError,
 )
 
-from models import (
+from AI_Layer.models import (
     CalibrationEstimate,
     ChatTurn,
     Chunk,

@@ -50,7 +50,7 @@ if AI_LAYER_PATH not in sys.path:
 # MODELS
 # ============================================================
 
-from models import (
+from AI_Layer.models import (
     AdaptiveQuizAnswerRequest,
     AdaptiveSession,
     Concept,
@@ -66,18 +66,16 @@ from models import (
 app = FastAPI(
     title="FlexQuizz API"
 )
-
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+
 
 
 # ============================================================
@@ -107,7 +105,7 @@ async def test_ai():
 
     try:
 
-        import ai_core
+        import AI_Layer.ai_core as ai_core
 
         return {
             "message": (
@@ -271,7 +269,7 @@ async def generate_next_question(
     session: AdaptiveSession,
 ):
 
-    from ai_core import (
+    from AI_Layer.ai_core import (
         generate_validated_question,
     )
 
@@ -352,7 +350,7 @@ async def generate_next_question(
     # 6. Add to history.
     # --------------------------------------------------------
 
-    from models import AdaptiveQuestion
+    from AI_Layer.models import AdaptiveQuestion
 
     session.history.append(
         AdaptiveQuestion(
@@ -405,16 +403,14 @@ async def read_uploaded_material(
             )
 
 
-        from ai_core import (
-            extract_text_and_chunk,
-        )
+        from AI_Layer.ai_core import extract_text_and_chunk
 
         return extract_text_and_chunk(
             text
         )
 
 
-    from ai_core import (
+    from AI_Layer.ai_core import (
         extract_and_chunk,
     )
 
@@ -445,7 +441,7 @@ async def generate_question_api(
     request: QuestionRequest,
 ):
 
-    from ai_core import (
+    from AI_Layer.ai_core import (
         generate_validated_question,
     )
 
@@ -475,7 +471,7 @@ async def extract_concepts_api(
     file: UploadFile = File(...),
 ):
 
-    from ai_core import (
+    from AI_Layer.ai_core import (
         extract_concepts,
     )
 
@@ -517,7 +513,7 @@ async def start_adaptive_quiz(
     question_count: int = 10,
 ):
 
-    from ai_core import (
+    from AI_Layer.ai_core import (
         extract_concepts,
         deduplicate_concepts,
     )
@@ -1011,7 +1007,7 @@ async def generate_quiz_api(
     question_count: int = 10,
 ):
 
-    from ai_core import (
+    from AI_Layer.ai_core import (
         extract_concepts,
         deduplicate_concepts,
         generate_validated_question,
