@@ -563,7 +563,7 @@ export const ActiveQuizView: React.FC<
 
         const response =
           await fetch(
-            'http://127.0.0.1:8000/answer-adaptive-question',
+            '/api/answer-adaptive-question',
             {
               method: 'POST',
 

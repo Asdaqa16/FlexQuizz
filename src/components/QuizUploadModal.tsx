@@ -59,7 +59,7 @@ export const QuizUploadModal: React.FC<QuizUploadModalProps> = ({
     const difficultyValue = difficulty.toLowerCase();
 
     const response = await fetch(
-      `http://127.0.0.1:8000/start-adaptive-quiz?difficulty=${difficultyValue}&question_count=${questionCount}`,
+      `/api/start-adaptive-quiz?difficulty=${difficultyValue}&question_count=${questionCount}`,
       {
         method: 'POST',
         body: formData,
