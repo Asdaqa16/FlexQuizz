@@ -242,12 +242,7 @@ const [loading, setLoading] = useState(false);
             Continue with Google
           </button>
 
-          <p className="text-center text-xs text-gray-500 mt-6">
-            Don't have an account?{' '}
-            <button onClick={() => setCurrentView('dashboard')} className="text-[#7372A5] font-bold hover:underline">
-              Sign up free
-            </button>
-          </p>
+         
         </div>
 
       </main>
