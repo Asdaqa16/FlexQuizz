@@ -29,13 +29,13 @@ import { ResultsView } from './components/Views/ResultsView';
 
 
 export default function App() {
-
   const [currentView, setCurrentView] = useState<ViewMode>('login');
+  const [authLoading, setAuthLoading] = useState(true);
   const [dyslexiaMode, setDyslexiaMode] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState(INITIAL_USER_PROFILE);
   const [quizzesList, setQuizzesList] = useState<Quiz[]>(SAMPLE_QUIZZES);
-  const [recentHistory, setRecentHistory] = useState<
-  {
+  
+  const [recentHistory, setRecentHistory] = useState<{
     id: string;
     title: string;
     topic: string;
@@ -43,344 +43,104 @@ export default function App() {
     date: string;
     icon: string;
     difficulty: string;
-  }[]
->([]);
+  }[]>([]);
+  
   const [activeQuiz, setActiveQuiz] = useState<Quiz>(SAMPLE_QUIZZES[0]);
+  const [adaptiveSessionId, setAdaptiveSessionId] = useState<string | undefined>(undefined);
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
   const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
-
-
-  const [
-    currentView,
-    setCurrentView,
-  ] = useState<ViewMode>(
-    'login'
-  );
-
-
-  const [
-    authLoading,
-    setAuthLoading,
-  ] = useState(true);
-
-
-  const [
-    dyslexiaMode,
-    setDyslexiaMode,
-  ] = useState(false);
-
-
-  const [
-    userProfile,
-    setUserProfile,
-  ] = useState(
-    INITIAL_USER_PROFILE
-  );
-
-
-  const [
-    quizzesList,
-    setQuizzesList,
-  ] = useState<Quiz[]>(
-    SAMPLE_QUIZZES
-  );
-
-
-  const [
-    activeQuiz,
-    setActiveQuiz,
-  ] = useState<Quiz>(
-    SAMPLE_QUIZZES[0]
-  );
-
-
-  const [
-    adaptiveSessionId,
-    setAdaptiveSessionId,
-  ] = useState<
-    string | undefined
-  >(undefined);
-
-
-  const [
-    quizResult,
-    setQuizResult,
-  ] = useState<QuizResult | null>(
-    null
-  );
-
-
-  const [
-    isUploadModalOpen,
-    setIsUploadModalOpen,
-  ] = useState(false);
-
 
   // ==========================================================
   // DYSLEXIA MODE
   // ==========================================================
 
   useEffect(() => {
-
     if (dyslexiaMode) {
-      document.body.classList.add(
-        'dyslexia-mode'
-      );
+      document.body.classList.add('dyslexia-mode');
     } else {
-      document.body.classList.remove(
-        'dyslexia-mode'
-      );
+      document.body.classList.remove('dyslexia-mode');
     }
-
   }, [dyslexiaMode]);
-
 
   // ==========================================================
   // AUTH
-  //
-  // IMPORTANT:
-  // Opening / refreshing the site starts at LOGIN.
-  // A real SIGNED_IN event takes the user to Dashboard.
   // ==========================================================
 
   useEffect(() => {
-
     let mounted = true;
 
-
-
-  const handleQuizComplete = (result: QuizResult) => {
-  setQuizResult(result);
-  setRecentHistory((prev) => [
-  {
-    id: result.quizId,
-    title: result.quizTitle,
-    topic: activeQuiz?.topic || result.quizTitle,
-    score: result.scorePercentage,
-    date: 'Just now',
-    icon: 'quiz',
-    difficulty: activeQuiz?.difficulty || 'Medium',
-  },
-  ...prev,
-].slice(0, 4));
-
-  // Add this quiz to the current session
-  setQuizResults((prevResults) => {
-    const updatedResults = [...prevResults, result];
-
-    // Calculate real session statistics
-    const totalQuizzes = updatedResults.length;
-
-    const averageScore = Math.round(
-      updatedResults.reduce(
-        (sum, quiz) => sum + quiz.scorePercentage,
-        0
-      ) / totalQuizzes
-    );
-
-    const bestScore = Math.max(
-      ...updatedResults.map(
-        (quiz) => quiz.scorePercentage
-      )
-    );
-
-    const totalQuestions = updatedResults.reduce(
-      (sum, quiz) => sum + quiz.totalQuestions,
-      0
-    );
-
-    const totalCorrect = updatedResults.reduce(
-      (sum, quiz) => sum + quiz.correctAnswersCount,
-      0
-    );
-
-    const accuracy = Math.round(
-      (totalCorrect / totalQuestions) * 100
-    );
-
-    setUserProfile((profile) => ({
-      ...profile,
-      totalQuizzesAttempted: totalQuizzes,
-      averageScore,
-      bestScore,
-      accuracy,
-      overallProgress: averageScore,
-    }));
-
-    return updatedResults;
-  });
-
-  setCurrentView('quiz-results');
-};
-
-    const checkAuth =
-      async () => {
-
-
-        await supabase.auth.getSession();
-
-        if (!mounted) return;
-
-        setCurrentView(
-          'login'
-        );
-
-        setAuthLoading(
-          false
-        );
-      };
-
+    const checkAuth = async () => {
+      await supabase.auth.getSession();
+      if (!mounted) return;
+      setCurrentView('login');
+      setAuthLoading(false);
+    };
 
     checkAuth();
 
-
     const {
-      data: {
-        subscription,
-      },
-    } =
-      supabase.auth.onAuthStateChange(
-        (event) => {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (!mounted) return;
 
-          if (!mounted) return;
-
-
-          if (
-            event ===
-            'SIGNED_IN'
-          ) {
-
-            setCurrentView(
-              'dashboard'
-            );
-
-          } else if (
-            event ===
-            'SIGNED_OUT'
-          ) {
-
-            setCurrentView(
-              'login'
-            );
-
-          }
-
-        }
-      );
-
+      if (event === 'SIGNED_IN') {
+        setCurrentView('dashboard');
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentView('login');
+      }
+    });
 
     return () => {
-
       mounted = false;
-
       subscription.unsubscribe();
-
     };
-
   }, []);
-
 
   // ==========================================================
   // LOADING
   // ==========================================================
 
   if (authLoading) {
-
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f6f6fa]">
-
         <div className="text-sm font-semibold text-[#7372A5]">
           Loading FlexQuizz...
         </div>
-
       </div>
     );
   }
-
 
   // ==========================================================
   // START STATIC QUIZ
   // ==========================================================
 
-  const handleStartQuiz = (
-    quizToStart: Quiz
-  ) => {
-
-    setAdaptiveSessionId(
-      undefined
-    );
-
-    setActiveQuiz(
-      quizToStart
-    );
-
-    setCurrentView(
-      'active-quiz'
-    );
+  const handleStartQuiz = (quizToStart: Quiz) => {
+    setAdaptiveSessionId(undefined);
+    setActiveQuiz(quizToStart);
+    setCurrentView('active-quiz');
   };
-
 
   // ==========================================================
   // START ADAPTIVE QUIZ
   // ==========================================================
 
-  const handleAdaptiveQuizStarted =
-    async (
-      launch: AdaptiveQuizLaunch
-    ) => {
-
-      const adaptiveQuiz: Quiz = {
-
-        id:
-          `adaptive-${launch.sessionId}`,
-
-        title:
-          launch.title,
-
-        topic:
-          launch.firstQuestion.concept ||
-          launch.title,
-
-        difficulty:
-          launch.firstQuestion.difficulty ||
-          'Medium',
-
-        questions: [
-          launch.firstQuestion,
-        ],
-
-        totalQuestions:
-          launch.totalQuestions,
-
-        timeLimitMinutes:
-          15,
-      };
-
-
-      setAdaptiveSessionId(
-        launch.sessionId
-      );
-
-
-      setActiveQuiz(
-        adaptiveQuiz
-      );
-
-
-      setQuizzesList(
-        (prev) => [
-          adaptiveQuiz,
-          ...prev,
-        ]
-      );
-
-
-      setCurrentView(
-        'active-quiz'
-      );
+  const handleAdaptiveQuizStarted = async (launch: AdaptiveQuizLaunch) => {
+    const adaptiveQuiz: Quiz = {
+      id: `adaptive-${launch.sessionId}`,
+      title: launch.title,
+      topic: launch.firstQuestion.concept || launch.title,
+      difficulty: launch.firstQuestion.difficulty || 'Medium',
+      questions: [launch.firstQuestion],
+      totalQuestions: launch.totalQuestions,
+      timeLimitMinutes: 15,
     };
 
+    setAdaptiveSessionId(launch.sessionId);
+    setActiveQuiz(adaptiveQuiz);
+    setQuizzesList((prev) => [adaptiveQuiz, ...prev]);
+    setCurrentView('active-quiz');
+  };
 
   // ==========================================================
   // QUIZ COMPLETE
@@ -390,279 +150,140 @@ export default function App() {
     result: QuizResult,
     completedQuiz?: Quiz
   ) => {
-
     if (completedQuiz) {
-
-      setActiveQuiz(
-        completedQuiz
-      );
-
+      setActiveQuiz(completedQuiz);
     }
 
+    setQuizResult(result);
+    setRecentHistory((prev) => [
+      {
+        id: result.quizId,
+        title: result.quizTitle,
+        topic: completedQuiz?.topic || activeQuiz?.topic || result.quizTitle,
+        score: result.scorePercentage,
+        date: 'Just now',
+        icon: 'quiz',
+        difficulty: completedQuiz?.difficulty || activeQuiz?.difficulty || 'Medium',
+      },
+      ...prev,
+    ].slice(0, 4));
 
-    setQuizResult(
-      result
-    );
+    setQuizResults((prevResults) => {
+      const updatedResults = [...prevResults, result];
 
+      const totalQuizzes = updatedResults.length;
+      const averageScore = Math.round(
+        updatedResults.reduce((sum, quiz) => sum + quiz.scorePercentage, 0) / totalQuizzes
+      );
+      const bestScore = Math.max(...updatedResults.map((quiz) => quiz.scorePercentage));
+      const totalQuestions = updatedResults.reduce((sum, quiz) => sum + quiz.totalQuestions, 0);
+      const totalCorrect = updatedResults.reduce((sum, quiz) => sum + quiz.correctAnswersCount, 0);
+      const accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
 
-    setUserProfile(
-      (prev) => ({
+      setUserProfile((profile) => ({
+        ...profile,
+        totalQuizzesAttempted: profile.totalQuizzesAttempted + 1,
+        averageScore,
+        bestScore: Math.max(profile.bestScore, bestScore),
+        accuracy,
+        overallProgress: averageScore,
+      }));
 
-        ...prev,
+      return updatedResults;
+    });
 
-        totalQuizzesAttempted:
-          prev.totalQuizzesAttempted +
-          1,
-
-        averageScore:
-          Math.round(
-            (
-              prev.averageScore *
-                prev.totalQuizzesAttempted +
-              result.scorePercentage
-            ) /
-              (
-                prev.totalQuizzesAttempted +
-                1
-              )
-          ),
-
-        bestScore:
-          Math.max(
-            prev.bestScore,
-            result.scorePercentage
-          ),
-
-      })
-    );
-
-
-    setCurrentView(
-      'quiz-results'
-    );
+    setCurrentView('quiz-results');
   };
-
 
   // ==========================================================
   // LOGIN
   // ==========================================================
 
-  if (
-    currentView ===
-    'login'
-  ) {
-
+  if (currentView === 'login') {
     return (
       <LoginView
-        setCurrentView={
-          setCurrentView
-        }
-        dyslexiaMode={
-          dyslexiaMode
-        }
-        setDyslexiaMode={
-          setDyslexiaMode
-        }
+        setCurrentView={setCurrentView}
+        dyslexiaMode={dyslexiaMode}
+        setDyslexiaMode={setDyslexiaMode}
       />
     );
   }
-
 
   // ==========================================================
   // LANDING
   // ==========================================================
 
-  if (
-    currentView ===
-    'landing'
-  ) {
-
+  if (currentView === 'landing') {
     return (
       <>
         <LandingView
-
-          setCurrentView={
-            setCurrentView
-          }
-
-          onOpenUploadModal={() =>
-            setIsUploadModalOpen(
-              true
-            )
-          }
-
-          onStartDemoQuiz={() =>
-            handleStartQuiz(
-              SAMPLE_QUIZZES[0]
-            )
-          }
-
-          dyslexiaMode={
-            dyslexiaMode
-          }
-
-          setDyslexiaMode={
-            setDyslexiaMode
-          }
-
+          setCurrentView={setCurrentView}
+          onOpenUploadModal={() => setIsUploadModalOpen(true)}
+          onStartDemoQuiz={() => handleStartQuiz(SAMPLE_QUIZZES[0])}
+          dyslexiaMode={dyslexiaMode}
+          setDyslexiaMode={setDyslexiaMode}
         />
-
         <QuizUploadModal
-
-          isOpen={
-            isUploadModalOpen
-          }
-
-          onClose={() =>
-            setIsUploadModalOpen(
-              false
-            )
-          }
-
-          onQuizStarted={
-            handleAdaptiveQuizStarted
-          }
-
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          onQuizGenerated={handleStartQuiz}
         />
-
       </>
     );
   }
-
 
   // ==========================================================
   // ACTIVE QUIZ
   // ==========================================================
 
-  if (
-    currentView ===
-    'active-quiz'
-  ) {
-
+  if (currentView === 'active-quiz') {
     return (
-
       <ActiveQuizView
-
-        quiz={
-          activeQuiz
-        }
-
-        adaptiveSessionId={
-          adaptiveSessionId
-        }
-
-        setCurrentView={
-          setCurrentView
-        }
-
-        dyslexiaMode={
-          dyslexiaMode
-        }
-
-        setDyslexiaMode={
-          setDyslexiaMode
-        }
-
-        onCompleteQuiz={
-          handleQuizComplete
-        }
-
+        quiz={activeQuiz}
+        adaptiveSessionId={adaptiveSessionId}
+        setCurrentView={setCurrentView}
+        dyslexiaMode={dyslexiaMode}
+        setDyslexiaMode={setDyslexiaMode}
+        onCompleteQuiz={handleQuizComplete}
       />
-
     );
   }
-
 
   // ==========================================================
   // RESULTS
   // ==========================================================
 
-  if (
-    currentView ===
-      'quiz-results' &&
-    quizResult
-  ) {
-
+  if (currentView === 'quiz-results' && quizResult) {
     return (
-
       <ResultsView
-
-        quizResult={
-          quizResult
-        }
-
-        quiz={
-          activeQuiz
-        }
-
-        setCurrentView={
-          setCurrentView
-        }
-
-        dyslexiaMode={
-          dyslexiaMode
-        }
-
-        setDyslexiaMode={
-          setDyslexiaMode
-        }
-
-        onRetakeQuiz={() =>
-          handleStartQuiz(
-            activeQuiz
-          )
-        }
-
-        onStartAnotherQuiz={() =>
-          setCurrentView(
-            'landing'
-          )
-        }
-
+        quizResult={quizResult}
+        quiz={activeQuiz}
+        setCurrentView={setCurrentView}
+        dyslexiaMode={dyslexiaMode}
+        setDyslexiaMode={setDyslexiaMode}
+        onRetakeQuiz={() => handleStartQuiz(activeQuiz)}
+        onStartAnotherQuiz={() => setCurrentView('landing')}
       />
-
     );
   }
-
 
   // ==========================================================
   // MAIN APP LAYOUT
   // ==========================================================
 
   return (
-
     <div className="min-h-screen bg-[#f6f6fa] flex flex-col font-sans">
-
       <div className="flex-1 flex max-w-7xl w-full mx-auto">
-
         <Sidebar
-
-          currentView={
-            currentView
-          }
-
-          setCurrentView={
-            setCurrentView
-          }
-
-          dyslexiaMode={
-            dyslexiaMode
-          }
-
-          setDyslexiaMode={
-            setDyslexiaMode
-          }
-
+          currentView={currentView}
+          setCurrentView={setCurrentView}
+          dyslexiaMode={dyslexiaMode}
+          setDyslexiaMode={setDyslexiaMode}
         />
 
-
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-
-          {currentView ===
-            'dashboard' && (
-
+          {currentView === 'dashboard' && (
             <DashboardView
-
               setCurrentView={setCurrentView}
               userProfile={userProfile}
               onStartQuiz={handleStartQuiz}
@@ -670,42 +291,10 @@ export default function App() {
               recentHistory={recentHistory}
               quizResults={quizResults}
               onOpenUploadModal={() => setIsUploadModalOpen(true)}
-
-
-              setCurrentView={
-                setCurrentView
-              }
-
-              userProfile={
-                userProfile
-              }
-
-              onStartQuiz={
-                handleStartQuiz
-              }
-
-              sampleQuizzes={
-                quizzesList
-              }
-
-              recentHistory={
-                RECENT_QUIZZES_HISTORY
-              }
-
-              onOpenUploadModal={() =>
-                setIsUploadModalOpen(
-                  true
-                )
-              }
-
-
             />
-
           )}
 
-
-          {currentView ===
-            'quizzes-list' && (
+          {currentView === 'quizzes-list' && (
 
             <div className="space-y-6 text-left">
 
@@ -841,8 +430,8 @@ export default function App() {
           )
         }
 
-        onQuizStarted={
-          handleAdaptiveQuizStarted
+        onQuizGenerated={
+          handleStartQuiz
         }
 
       />
