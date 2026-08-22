@@ -3,6 +3,10 @@ import React, {
   useState,
 } from 'react';
 
+import FoxCompanion, {
+  FoxState,
+} from '../../components/FoxCompanion';
+
 // @ts-ignore
 import Hypher from 'hypher';
 // @ts-ignore
@@ -111,6 +115,9 @@ export const ActiveQuizView: React.FC<
     secondsSpent,
     setSecondsSpent,
   ] = useState(0);
+
+  const [foxState, setFoxState] =
+  useState<FoxState>('walk');
 
 
   const [
@@ -305,20 +312,27 @@ export const ActiveQuizView: React.FC<
   // ----------------------------------------------------------
 
   const handleSelectOption = (
-    optionIndex: number
-  ) => {
+  optionIndex: number
+) => {
 
-    if (adaptiveLoading) return;
+  if (adaptiveLoading) return;
 
-    setSelectedAnswers(
-      (prev) => ({
-        ...prev,
-        [currentQuestion.id]:
-          optionIndex,
-      })
-    );
-  };
+  setSelectedAnswers(
+    (prev) => ({
+      ...prev,
+      [currentQuestion.id]:
+        optionIndex,
+    })
+  );
 
+  if (!dyslexiaMode) {
+    setFoxState('jump');
+
+    setTimeout(() => {
+      setFoxState('walk');
+    }, 700);
+  }
+};
 
   const handleClearSelection = () => {
 
@@ -371,6 +385,10 @@ export const ActiveQuizView: React.FC<
   const finishQuiz = (
     finalQuestions: Question[]
   ) => {
+
+    if (!dyslexiaMode) {
+      setFoxState('celebrate');
+    }
 
     let correctCount = 0;
 
@@ -1354,6 +1372,10 @@ export const ActiveQuizView: React.FC<
         </div>
 
       </div>
+
+      {!dyslexiaMode && (
+        <FoxCompanion state={foxState} />
+      )}
 
     </div>
   );
