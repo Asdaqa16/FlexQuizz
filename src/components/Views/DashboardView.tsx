@@ -124,68 +124,8 @@ const topicStrength =
 
       </div>
 
-      {/* Continue Learning Banner */}
-      <div className="bg-[#222138] rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-lg">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/5 rounded-l-full blur-2xl pointer-events-none" />
-        
-        <div className="relative z-10 max-w-xl space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-gray-200 text-xs font-bold uppercase tracking-wider">
-            <span className="material-symbols-outlined text-sm">schedule</span>
-            <span>Resume Activity</span>
-          </div>
+      
 
-          <h2 className="text-2xl sm:text-3xl font-extrabold font-display">
-            {pythonQuiz.title}
-          </h2>
-
-          <div className="flex flex-wrap items-center gap-4 text-xs text-gray-200 font-medium">
-            <span className="bg-white/10 px-3 py-1 rounded-lg">Difficulty: {pythonQuiz.difficulty}</span>
-            <span className="bg-white/10 px-3 py-1 rounded-lg">{pythonQuiz.totalQuestions} Questions</span>
-            <span className="text-amber-300 font-bold">65% Progress</span>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="w-full bg-white/20 h-2.5 rounded-full overflow-hidden">
-            <div className="bg-gradient-to-r from-amber-400 to-amber-300 h-full w-[65%] rounded-full transition-all" />
-          </div>
-
-          <button
-            onClick={() => onStartQuiz(pythonQuiz)}
-            className="mt-2 bg-[#7372A5] hover:bg-[#585785] text-white font-bold text-xs sm:text-sm px-6 py-3 rounded-2xl shadow-md transition-all flex items-center gap-2"
-          >
-            <span>Continue Quiz</span>
-            <span className="material-symbols-outlined text-lg">arrow_forward</span>
-          </button>
-        </div>
-      </div>
-
-      {/* AI Learning Insight Card */}
-      <div className="bg-[#ececf4] border-2 border-[#d8d7e8] rounded-3xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#7372A5] text-white flex items-center justify-center shrink-0 shadow-md">
-            <span className="material-symbols-outlined text-xl">psychology</span>
-          </div>
-          <div>
-            <h3 className="font-bold text-sm text-[#222138] flex items-center gap-1.5">
-              <span>Your Learning Insight</span>
-              <span className="text-[10px] bg-white text-[#7372A5] px-2 py-0.5 rounded-full font-extrabold uppercase border border-[#d8d7e8]">AI Recommendation</span>
-            </h3>
-            <p className="text-xs text-gray-600 mt-1 leading-relaxed max-w-2xl">
-              Based on your recent performance, you might want to spend more time practicing <strong>Networking Concepts</strong> and <strong>Control Flow</strong> in Python functions.
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={() => {
-            const netQuiz = sampleQuizzes.find((q) => q.id === 'networking-basics') || sampleQuizzes[0];
-            onStartQuiz(netQuiz);
-          }}
-          className="shrink-0 bg-white border border-[#d8d7e8] text-[#7372A5] hover:bg-[#f6f6fa] text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition-colors"
-        >
-          Practice Weak Topics &rarr;
-        </button>
-      </div>
 
       {/* Grid: Performance Donut & Recent Quizzes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
