@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { Quiz } from '../types';
+import { Quiz, AdaptiveQuizLaunch } from '../types';
 
 interface QuizUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onQuizGenerated: (quiz: Quiz) => void;
+  onQuizStarted: (launch: AdaptiveQuizLaunch) => void;
 }
 
 export const QuizUploadModal: React.FC<QuizUploadModalProps> = ({
   isOpen,
   onClose,
-  onQuizGenerated,
+  onQuizStarted,
 }) => {
   const [topic, setTopic] = useState('');
   const [content, setContent] = useState('');
@@ -59,7 +59,7 @@ export const QuizUploadModal: React.FC<QuizUploadModalProps> = ({
     const difficultyValue = difficulty.toLowerCase();
 
     const response = await fetch(
-      `http://127.0.0.1:8000/generate-quiz?difficulty=${difficultyValue}`,
+      `http://127.0.0.1:8000/start-adaptive-quiz?difficulty=${difficultyValue}&question_count=${questionCount}`,
       {
         method: 'POST',
         body: formData,
@@ -75,32 +75,25 @@ export const QuizUploadModal: React.FC<QuizUploadModalProps> = ({
 
     const data = await response.json();
 
-    console.log('Generated quiz:', data);
+    console.log('Started adaptive quiz:', data);
 
-    const newQuiz: Quiz = {
-  id: `gen-${Date.now()}`,
-  title: `${topic || 'Custom'} Quiz`,
-  topic: topic || 'General Study',
-  difficulty: difficulty,
-  questions: (data.questions || []).map(
-    (item: any, index: number) => ({
-      id: index + 1,
-      question: item.question.question_text,
-      options: item.question.options.map(
-        (option: any) => option.text
-      ),
-      correctAnswerIndex: item.question.options.findIndex(
-        (option: any) => option.is_correct
-      ),
-      hint: '',
-      explanation: '',
-    })
-  ),
-  totalQuestions: data.questions?.length || 0,
-  timeLimitMinutes: 15,
-};
+    const launch: AdaptiveQuizLaunch = {
+      sessionId: data.session_id,
+      title: data.title || topic || 'Adaptive Quiz',
+      totalQuestions: data.total_questions,
+      firstQuestion: {
+        id: data.question_number,
+        question: data.question.question_text,
+        options: data.question.options.map((opt: any) => opt.text),
+        correctAnswerIndex: data.question.options.findIndex((opt: any) => opt.is_correct),
+        hint: '',
+        explanation: '',
+        concept: data.concept_label,
+        difficulty: data.difficulty,
+      },
+    };
 
-    onQuizGenerated(newQuiz);
+    onQuizStarted(launch);
     onClose();
 
   } catch (err) {

@@ -226,7 +226,7 @@ export default function App() {
         <QuizUploadModal
           isOpen={isUploadModalOpen}
           onClose={() => setIsUploadModalOpen(false)}
-          onQuizGenerated={handleStartQuiz}
+          onQuizStarted={handleAdaptiveQuizStarted}
         />
       </>
     );
@@ -430,8 +430,8 @@ export default function App() {
           )
         }
 
-        onQuizGenerated={
-          handleStartQuiz
+        onQuizStarted={
+          handleAdaptiveQuizStarted
         }
 
       />
