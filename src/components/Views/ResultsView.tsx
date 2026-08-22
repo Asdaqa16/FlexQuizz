@@ -39,11 +39,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             </span>
           </button>
           
-          <nav className="hidden sm:flex items-center gap-2 ml-4 text-xs font-bold text-gray-500">
-            <button onClick={() => setCurrentView('dashboard')} className="hover:text-[#7372A5] px-2 py-1">Dashboard</button>
-            <span>/</span>
-            <span className="text-[#7372A5]">Quiz Results</span>
-          </nav>
+          
         </div>
 
         <div className="flex items-center gap-4">
@@ -66,13 +62,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               />
             </button>
           </div>
-
-          <button
-            onClick={() => setCurrentView('dashboard')}
-            className="bg-[#7372A5] hover:bg-[#585785] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md transition-all"
-          >
-            Go to Dashboard
-          </button>
         </div>
       </header>
 
@@ -195,7 +184,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
               <button
                 onClick={() => setCurrentView('dashboard')}
-                className="px-6 py-2.5 rounded-xl border border-[#d8d7e8] bg-white hover:bg-[#ececf4] font-bold text-xs text-[#222138] transition-colors"
+                className="px-6 py-2.5 rounded-xl bg-[#7372A5] hover:bg-[#585785] text-white font-bold text-xs shadow-md transition-all flex items-center gap-2"
               >
                 Go to Dashboard
               </button>
@@ -285,11 +274,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                       })}
                     </div>
 
-                    {/* Explanation box */}
-                    <div className="bg-[#ececf4] p-3.5 rounded-xl border border-[#d8d7e8] text-xs text-gray-700 leading-relaxed">
-                      <span className="font-bold text-[#7372A5] block mb-0.5">Explanation:</span>
-                      {q.explanation}
-                    </div>
+                   
 
                   </div>
                 );

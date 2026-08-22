@@ -30,6 +30,27 @@ import { ResultsView } from './components/Views/ResultsView';
 
 export default function App() {
 
+  const [currentView, setCurrentView] = useState<ViewMode>('login');
+  const [dyslexiaMode, setDyslexiaMode] = useState<boolean>(false);
+  const [userProfile, setUserProfile] = useState(INITIAL_USER_PROFILE);
+  const [quizzesList, setQuizzesList] = useState<Quiz[]>(SAMPLE_QUIZZES);
+  const [recentHistory, setRecentHistory] = useState<
+  {
+    id: string;
+    title: string;
+    topic: string;
+    score: number;
+    date: string;
+    icon: string;
+    difficulty: string;
+  }[]
+>([]);
+  const [activeQuiz, setActiveQuiz] = useState<Quiz>(SAMPLE_QUIZZES[0]);
+  const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
+  const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
+
+
   const [
     currentView,
     setCurrentView,
@@ -128,8 +149,74 @@ export default function App() {
     let mounted = true;
 
 
+
+  const handleQuizComplete = (result: QuizResult) => {
+  setQuizResult(result);
+  setRecentHistory((prev) => [
+  {
+    id: result.quizId,
+    title: result.quizTitle,
+    topic: activeQuiz?.topic || result.quizTitle,
+    score: result.scorePercentage,
+    date: 'Just now',
+    icon: 'quiz',
+    difficulty: activeQuiz?.difficulty || 'Medium',
+  },
+  ...prev,
+].slice(0, 4));
+
+  // Add this quiz to the current session
+  setQuizResults((prevResults) => {
+    const updatedResults = [...prevResults, result];
+
+    // Calculate real session statistics
+    const totalQuizzes = updatedResults.length;
+
+    const averageScore = Math.round(
+      updatedResults.reduce(
+        (sum, quiz) => sum + quiz.scorePercentage,
+        0
+      ) / totalQuizzes
+    );
+
+    const bestScore = Math.max(
+      ...updatedResults.map(
+        (quiz) => quiz.scorePercentage
+      )
+    );
+
+    const totalQuestions = updatedResults.reduce(
+      (sum, quiz) => sum + quiz.totalQuestions,
+      0
+    );
+
+    const totalCorrect = updatedResults.reduce(
+      (sum, quiz) => sum + quiz.correctAnswersCount,
+      0
+    );
+
+    const accuracy = Math.round(
+      (totalCorrect / totalQuestions) * 100
+    );
+
+    setUserProfile((profile) => ({
+      ...profile,
+      totalQuizzesAttempted: totalQuizzes,
+      averageScore,
+      bestScore,
+      accuracy,
+      overallProgress: averageScore,
+    }));
+
+    return updatedResults;
+  });
+
+  setCurrentView('quiz-results');
+};
+
     const checkAuth =
       async () => {
+
 
         await supabase.auth.getSession();
 
@@ -576,6 +663,15 @@ export default function App() {
 
             <DashboardView
 
+              setCurrentView={setCurrentView}
+              userProfile={userProfile}
+              onStartQuiz={handleStartQuiz}
+              sampleQuizzes={quizzesList}
+              recentHistory={recentHistory}
+              quizResults={quizResults}
+              onOpenUploadModal={() => setIsUploadModalOpen(true)}
+
+
               setCurrentView={
                 setCurrentView
               }
@@ -601,6 +697,7 @@ export default function App() {
                   true
                 )
               }
+
 
             />
 

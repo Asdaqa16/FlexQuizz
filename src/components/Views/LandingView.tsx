@@ -63,18 +63,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
             </button>
           </div>
 
-          <button
-            onClick={() => setCurrentView('login')}
-            className="text-xs font-bold text-gray-700 hover:text-[#7372A5] px-3 py-2"
-          >
-            Log In
-          </button>
-          <button
-            onClick={() => setCurrentView('dashboard')}
-            className="bg-[#7372A5] hover:bg-[#585785] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md transition-all"
-          >
-            Get Started
-          </button>
         </div>
       </nav>
 
@@ -85,7 +73,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
         <div className="space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#ececf4] text-[#7372A5] text-xs font-bold uppercase tracking-wider border border-[#d8d7e8]">
             <span className="material-symbols-outlined text-sm">auto_awesome</span>
-            <span>AI-Powered. Your Material. Your Quiz.</span>
+            <span>Your notes. Your pace. Your rules</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-extrabold text-[#222138] tracking-tight leading-tight">
@@ -118,34 +106,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
             </button>
           </div>
 
-          {/* Social Proof */}
-          <div className="pt-6 border-t border-[#d8d7e8] flex items-center gap-4">
-            <div className="flex -space-x-2">
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100"
-                className="w-10 h-10 rounded-full border-2 border-white object-cover"
-                alt="Student 1"
-              />
-              <img
-                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100"
-                className="w-10 h-10 rounded-full border-2 border-white object-cover"
-                alt="Student 2"
-              />
-              <img
-                src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100"
-                className="w-10 h-10 rounded-full border-2 border-white object-cover"
-                alt="Student 3"
-              />
-            </div>
-            <div>
-              <div className="flex items-center text-amber-400 text-sm">
-                ★★★★★
-              </div>
-              <p className="text-xs text-gray-500 font-semibold">
-                Trusted by <span className="text-[#222138] font-bold">1,000+ students</span> & educators
-              </p>
-            </div>
-          </div>
+          
 
         </div>
 
@@ -154,35 +115,12 @@ export const LandingView: React.FC<LandingViewProps> = ({
           
           {/* Header with Dyslexia Toggle Highlight */}
           <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#d8d7e8]">
-            <div>
+            <div className="text-center w-full">
               <h3 className="text-xl font-bold text-[#222138]">Upload Your Material</h3>
               <p className="text-xs text-gray-500">PDF, DOCX, PPTX, or raw text</p>
             </div>
 
-            {/* Prominent Dyslexia Mode Toggle Button directly on Upload Page */}
-            <div className="flex items-center gap-2 bg-[#ececf4] px-3.5 py-2 rounded-2xl border border-[#d8d7e8] shadow-xs">
-              <span className="material-symbols-outlined text-[#7372A5] text-lg">visibility</span>
-              <div className="text-left">
-                <span className="text-[11px] text-gray-700 font-bold block leading-none">Dyslexia Mode</span>
-                <span className={`text-[10px] font-extrabold ${dyslexiaMode ? 'text-[#7372A5]' : 'text-gray-400'}`}>
-                  {dyslexiaMode ? 'MONOCHROME ON' : 'DISABLED'}
-                </span>
-              </div>
-              <button
-                onClick={() => setDyslexiaMode(!dyslexiaMode)}
-                role="switch"
-                aria-checked={dyslexiaMode}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                  dyslexiaMode ? 'bg-[#7372A5]' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    dyslexiaMode ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
+            
           </div>
 
           {/* Dropzone Box */}

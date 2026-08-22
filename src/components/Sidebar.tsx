@@ -20,7 +20,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
     { id: 'quizzes-list', label: 'Quizzes', icon: 'quiz' },
     { id: 'landing', label: 'Upload Material', icon: 'upload_file' },
-    { id: 'leaderboard', label: 'Leaderboard', icon: 'leaderboard' },
     { id: 'analytics', label: 'Analytics', icon: 'insights' },
     { id: 'quiz-results', label: 'Latest Results', icon: 'fact_check' },
   ];
@@ -169,26 +168,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             })}
           </div>
 
-          {/* Learning Streak Tracker */}
-          <div className="border-t border-[#d8d7e8] pt-4">
-            <p className="px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-              Active Study Streak
-            </p>
-            <div className="bg-[#f6f6fa] p-3 rounded-xl border border-[#d8d7e8] flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center font-bold shrink-0">
-                  <span className="material-symbols-outlined text-lg">local_fire_department</span>
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-[#222138] block">7 Days</span>
-                  <span className="text-[10px] text-gray-500 font-medium">Keep it going!</span>
-                </div>
-              </div>
-              <span className="text-[10px] bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-full border border-amber-200">
-                🔥 Active
-              </span>
-            </div>
-          </div>
 
         </div>
 
@@ -199,14 +178,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#ececf4] transition-colors group"
           >
             <div className="flex items-center gap-2.5">
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200"
-                alt="Alex Johnson"
-                className="w-9 h-9 rounded-full object-cover border border-[#d8d7e8]"
-              />
+              <div className="w-9 h-9 rounded-full bg-[#ececf4] flex items-center justify-center border border-[#d8d7e8]">
+                  <span className="material-symbols-outlined text-[#7372A5]">
+                    person
+                  </span>
+              </div>
+
               <div className="text-left">
-                <p className="text-xs font-bold text-[#222138] group-hover:text-[#7372A5]">Alex Johnson</p>
-                <p className="text-[10px] text-gray-500">Student Pro</p>
+                  <p className="text-xs font-bold text-[#222138] group-hover:text-[#7372A5]">
+                    Anoushka
+                  </p>
+                  <p className="text-[10px] text-gray-500">Student Pro</p>
               </div>
             </div>
             <span className="material-symbols-outlined text-gray-400 text-lg group-hover:text-[#7372A5]">

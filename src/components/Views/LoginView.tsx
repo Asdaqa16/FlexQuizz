@@ -74,13 +74,6 @@ const [loading, setLoading] = useState(false);
               />
             </button>
           </div>
-
-          <button
-            onClick={() => setCurrentView('dashboard')}
-            className="text-xs font-semibold text-[#7372A5] hover:underline"
-          >
-            Explore Dashboard &rarr;
-          </button>
         </div>
       </header>
 
@@ -92,7 +85,7 @@ const [loading, setLoading] = useState(false);
           <div className="space-y-4">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#ececf4] text-[#7372A5] text-xs font-bold uppercase tracking-wider border border-[#d8d7e8]">
               <span className="material-symbols-outlined text-sm">auto_awesome</span>
-              <span>AI-Powered Adaptive Learning</span>
+              <span>Your notes. Your pace. Your rules</span>
             </div>
 
             <h1 className="text-4xl sm:text-5xl font-extrabold text-[#222138] tracking-tight leading-tight">
@@ -129,8 +122,8 @@ const [loading, setLoading] = useState(false);
           {/* Social Proof Bar */}
           <div className="pt-2 flex flex-wrap items-center gap-6 border-t border-[#d8d7e8]">
             <div>
-              <p className="text-xl font-extrabold text-[#222138]">10k+</p>
-              <p className="text-xs text-gray-500 font-medium">Active Students</p>
+              <p className="text-xl font-extrabold text-[#222138]">Built</p>
+              <p className="text-xs text-gray-500 font-medium">For Every learner</p>
             </div>
             <div className="h-8 w-px bg-[#d8d7e8]" />
             <div>

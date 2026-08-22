@@ -1,16 +1,16 @@
 import { Quiz, UserProfile } from '../types';
 
 export const INITIAL_USER_PROFILE: UserProfile = {
-  name: 'Alex Johnson',
+  name: 'Asdaqa Arif',
   role: 'Student Pro',
   email: 'alex.johnson@university.edu',
   avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-  totalQuizzesAttempted: 24,
-  averageScore: 82,
-  bestScore: 96,
-  accuracy: 88,
-  streakDays: 7,
-  overallProgress: 68,
+  totalQuizzesAttempted: 0,
+  averageScore: 0,
+  bestScore: 0,
+  accuracy: 0,
+  streakDays: 0,
+  overallProgress: 0,
 };
 
 export const SAMPLE_QUIZZES: Quiz[] = [

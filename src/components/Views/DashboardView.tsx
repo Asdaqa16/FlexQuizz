@@ -1,11 +1,13 @@
 import React from 'react';
-import { ViewMode, Quiz, UserProfile } from '../../types';
+import { ViewMode, Quiz, UserProfile, QuizResult } from '../../types';
+
 
 interface DashboardViewProps {
   setCurrentView: (view: ViewMode) => void;
   userProfile: UserProfile;
   onStartQuiz: (quiz: Quiz) => void;
   sampleQuizzes: Quiz[];
+  quizResults: QuizResult[];
   recentHistory: Array<{ id: string; title: string; topic: string; score: number; date: string; icon: string; difficulty: string }>;
   onOpenUploadModal: () => void;
 }
@@ -15,10 +17,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   userProfile,
   onStartQuiz,
   sampleQuizzes,
+  quizResults,
   recentHistory,
   onOpenUploadModal,
 }) => {
   const pythonQuiz = sampleQuizzes.find((q) => q.id === 'python-basics') || sampleQuizzes[0];
+  const topicStats: Record<string, { correct: number; total: number }> = {};
+
+quizResults.forEach((result) => {
+  const topic = sampleQuizzes.find(
+    (quiz) => quiz.id === result.quizId
+  )?.topic || result.quizTitle;
+
+  if (!topicStats[topic]) {
+    topicStats[topic] = {
+      correct: 0,
+      total: 0,
+    };
+  }
+
+  topicStats[topic].correct += result.correctAnswersCount;
+  topicStats[topic].total += result.totalQuestions;
+});
+
+const topicMasteries = Object.values(topicStats).map(
+  (stats) => (stats.correct / stats.total) * 100
+);
+
+const topicStrength =
+  topicMasteries.length > 0
+    ? Math.round(
+        topicMasteries.reduce(
+          (sum, mastery) => sum + mastery,
+          0
+        ) / topicMasteries.length
+      )
+    : 0;
 
   return (
     <div className="space-y-8 text-left">
@@ -27,7 +61,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#d8d7e8] shadow-xs">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#222138] tracking-tight">
-            Welcome back, Alex! 👋
+            Welcome back! 
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
             Let's keep learning and improving your quiz accuracy today.
@@ -44,7 +78,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <span className="text-xs font-medium text-gray-500 block">Quizzes Attempted</span>
           <span className="text-2xl font-extrabold text-[#222138] mt-0.5 block">
-            {userProfile.totalQuizzesAttempted}
+           6
           </span>
         </div>
 
@@ -75,16 +109,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <span className="text-xs font-medium text-gray-500 block">Accuracy</span>
           <span className="text-2xl font-extrabold text-[#222138] mt-0.5 block">
             {userProfile.accuracy}%
-          </span>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-[#d8d7e8] shadow-xs hover:border-[#7372A5]/50 transition-all">
-          <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center mb-2">
-            <span className="material-symbols-outlined text-lg">local_fire_department</span>
-          </div>
-          <span className="text-xs font-medium text-gray-500 block">Current Streak</span>
-          <span className="text-2xl font-extrabold text-[#222138] mt-0.5 block">
-            {userProfile.streakDays} Days
           </span>
         </div>
 
@@ -147,7 +171,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="text-[10px] bg-white text-[#7372A5] px-2 py-0.5 rounded-full font-extrabold uppercase border border-[#d8d7e8]">AI Recommendation</span>
             </h3>
             <p className="text-xs text-gray-600 mt-1 leading-relaxed max-w-2xl">
-              Alex, based on your recent performance, you might want to spend more time practicing <strong>Networking Concepts</strong> and <strong>Control Flow</strong> in Python functions.
+              Based on your recent performance, you might want to spend more time practicing <strong>Networking Concepts</strong> and <strong>Control Flow</strong> in Python functions.
             </p>
           </div>
         </div>
@@ -189,7 +213,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   />
                   <path
                     className="text-[#7372A5]"
-                    strokeDasharray="82, 100"
+                    strokeDasharray={`${userProfile.averageScore}, 100`}
                     strokeWidth="3.8"
                     strokeLinecap="round"
                     stroke="currentColor"
@@ -198,7 +222,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   />
                 </svg>
                 <div className="absolute flex flex-col items-center">
-                  <span className="text-xl font-extrabold text-[#222138]">82%</span>
+                  <span className="text-xl font-extrabold text-[#222138]">
+                    {userProfile.averageScore}%
+                  </span>
                   <span className="text-[10px] text-gray-400 font-semibold">Overall</span>
                 </div>
               </div>
@@ -218,7 +244,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   />
                   <path
                     className="text-emerald-500"
-                    strokeDasharray="65, 100"
+                    strokeDasharray={`${topicStrength}, 100`}
                     strokeWidth="3.8"
                     strokeLinecap="round"
                     stroke="currentColor"
@@ -227,7 +253,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   />
                 </svg>
                 <div className="absolute flex flex-col items-center">
-                  <span className="text-xl font-extrabold text-[#222138]">65%</span>
+                  <span className="text-xl font-extrabold text-[#222138]">
+                    {topicStrength}%
+                  </span>
                   <span className="text-[10px] text-gray-400 font-semibold">Topic Mastery</span>
                 </div>
               </div>
