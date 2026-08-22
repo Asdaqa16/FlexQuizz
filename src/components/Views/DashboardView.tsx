@@ -78,7 +78,7 @@ const topicStrength =
           </div>
           <span className="text-xs font-medium text-gray-500 block">Quizzes Attempted</span>
           <span className="text-2xl font-extrabold text-[#222138] mt-0.5 block">
-           6
+           {userProfile.totalQuizzesAttempted}
           </span>
         </div>
 
