@@ -37,7 +37,7 @@ const [loading, setLoading] = useState(false);
     return;
   }
 
-  setCurrentView('dashboard');
+  setCurrentView('LandingView');
 };
 
   return (
